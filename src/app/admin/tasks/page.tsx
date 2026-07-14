@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { AdminTasks } from "@/app/admin/_components/tasks/admin-tasks";
 
 export default function AdminTasksPage() {
-  return <ModulePage moduleKey="tasks" role="ADMIN" />;
+  return <AdminTasks />;
 }

@@ -55,13 +55,14 @@ export async function getUserTasks(userId: string) {
 export async function getUserActivity(userId: string, limit = 50) {
   return await prisma.activity.findMany({
     where: { userId },
-    orderBy: { timestamp: 'desc' },
+    orderBy: { date: 'desc' },
     take: limit,
     select: {
       id: true,
-      action: true,
-      description: true,
-      timestamp: true
+      dailyMessagesSent: true,
+      successRate: true,
+      date: true,
+      performanceScore: true
     }
   })
 }

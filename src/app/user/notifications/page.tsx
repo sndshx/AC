@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { UserNotifications } from "@/app/user/_components/notifications/user-notifications";
 
 export default function UserNotificationsPage() {
-  return <ModulePage moduleKey="notifications" role="USER" />;
+  return <UserNotifications />;
 }

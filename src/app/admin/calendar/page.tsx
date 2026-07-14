@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { AdminCalendar } from "@/app/admin/_components/calendar/admin-calendar";
 
 export default function AdminCalendarPage() {
-  return <ModulePage moduleKey="calendar" role="ADMIN" />;
+  return <AdminCalendar />;
 }

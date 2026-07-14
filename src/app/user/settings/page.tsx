@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { UserSettings } from "@/app/user/_components/settings/user-settings";
 
 export default function UserSettingsPage() {
-  return <ModulePage moduleKey="settings" role="USER" />;
+  return <UserSettings />;
 }

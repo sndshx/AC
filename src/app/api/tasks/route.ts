@@ -44,3 +44,40 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ task }, { status: 201 });
 }
+
+export async function PATCH(request: NextRequest) {
+  const session = await getSessionFromRequest(request);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const { id, status } = await request.json();
+    if (!id || !status) {
+      return NextResponse.json({ error: "Missing task ID or status" }, { status: 400 });
+    }
+
+    const task = await prisma.marketingTask.findUnique({
+      where: { id }
+    });
+
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    if (session.role !== "ADMIN" && task.assignedToId !== session.id) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    const updatedTask = await prisma.marketingTask.update({
+      where: { id },
+      data: { 
+        status,
+        completedAt: status === "COMPLETED" ? new Date() : null
+      }
+    });
+
+    return NextResponse.json({ task: updatedTask });
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to update task" }, { status: 500 });
+  }
+}
+

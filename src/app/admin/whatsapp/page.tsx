@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { AdminWhatsApp } from "@/app/admin/_components/whatsapp/admin-whatsapp";
 
 export default function AdminWhatsAppPage() {
-  return <ModulePage moduleKey="whatsapp" role="ADMIN" />;
+  return <AdminWhatsApp />;
 }

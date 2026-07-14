@@ -38,7 +38,7 @@ export async function promoteUserToAdmin(userId: string) {
 export async function suspendUser(userId: string) {
   return await prisma.user.update({
     where: { id: userId },
-    data: { status: UserStatus.SUSPENDED }
+    data: { status: UserStatus.DISABLED }
   })
 }
 

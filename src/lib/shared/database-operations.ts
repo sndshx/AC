@@ -250,7 +250,7 @@ export async function getDashboardStats(userId?: string) {
     avgSuccessRate
   ] = await Promise.all([
     prisma.user.count({ where: { status: 'ACTIVE' } }),
-    prisma.marketingTask.count(userId ? { where: { assignedToId: userId } } : {}),
+    prisma.marketingTask.count(userId ? { where: { assignedToId: userId } } : undefined),
     prisma.marketingTask.count({
       where: {
         ...(userId && { assignedToId: userId }),

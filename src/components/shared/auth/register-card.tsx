@@ -5,6 +5,7 @@ import { Mail, LockKeyhole, UserRound, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Logo } from "@/components/ui/logo";
 
 export function RegisterCard() {
   const router = useRouter();
@@ -67,10 +68,7 @@ export function RegisterCard() {
 
         {/* Logo */}
         <div className="ac-logo-header">
-          <Link href="/" className="ac-logo">
-            <div className="ac-logo-badge">AC</div>
-            <span className="ac-logo-name">AI<strong>Marketing</strong></span>
-          </Link>
+          <Logo href="/" size="md" />
         </div>
 
         {/* Body */}
@@ -200,15 +198,6 @@ export function RegisterCard() {
             padding: 1.25rem 1rem;
           }
         }
-        .ac-logo { display: flex; align-items: center; gap: 0.55rem; text-decoration: none; }
-        .ac-logo-badge {
-          width: 32px; height: 32px; border-radius: 8px;
-          background: #16a34a;
-          display: flex; align-items: center; justify-content: center;
-          color: #ffffff; font-size: 0.8rem; font-weight: 800; letter-spacing: -0.5px;
-        }
-        .ac-logo-name { font-size: 0.92rem; color: #0f172a; font-weight: 400; }
-        .ac-logo-name strong { font-weight: 800; }
 
         .ac-body { padding: 1.75rem 2rem 1.5rem; }
         

@@ -1,5 +1,5 @@
-import { UserDashboard } from "@/components/user/dashboard/user-dashboard";
+import { EnhancedDashboard } from "@/app/user/_components/dashboard/dashboard";
 
 export default function UserDashboardPage() {
-  return <UserDashboard />;
+  return <EnhancedDashboard role="USER" />;
 }

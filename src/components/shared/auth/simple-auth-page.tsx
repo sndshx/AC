@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/providers/toast-provider";
+import { Logo } from "@/components/ui/logo";
 
 type SimpleAuthPageProps = {
   mode: "forgot" | "reset";
@@ -37,6 +38,9 @@ export function SimpleAuthPage({ mode }: SimpleAuthPageProps) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/45 px-4">
       <div className="w-full max-w-md">
+        <div className="mb-6 flex items-center justify-center">
+          <Logo href="/" size="md" />
+        </div>
         <Link href="/login" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
           Back to login

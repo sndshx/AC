@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { UserReports } from "@/app/user/_components/reports/user-reports";
 
 export default function UserReportsPage() {
-  return <ModulePage moduleKey="reports" role="USER" />;
+  return <UserReports />;
 }

@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { UserTasks } from "@/app/user/_components/tasks/user-tasks";
 
 export default function UserTasksPage() {
-  return <ModulePage moduleKey="tasks" role="USER" />;
+  return <UserTasks />;
 }

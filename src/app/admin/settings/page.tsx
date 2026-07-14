@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { AdminSettings } from "@/app/admin/_components/settings/admin-settings";
 
 export default function AdminSettingsPage() {
-  return <ModulePage moduleKey="settings" role="ADMIN" />;
+  return <AdminSettings />;
 }

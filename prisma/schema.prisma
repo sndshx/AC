@@ -73,6 +73,9 @@ model User {
   reports         Report[]         @relation("ReportOwner")
   generatedReports Report[]        @relation("ReportGenerator")
   auditLogs       AuditLog[]
+  teamMemberships TeamMember[]
+  chatMessages    ChatMessage[]
+  activityLogs    ActivityLog[]
 
   @@index([role, status])
   @@index([createdAt])
@@ -103,24 +106,99 @@ model Activity {
   @@index([userId])
 }
 
+model ActivityLog {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date         DateTime @db.Date
+  messageCount Int      @default(0)
+  remarks      String?
+  aiProgress   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([userId])
+}
+
+model Team {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  members     TeamMember[]
+  tasks       MarketingTask[]
+
+  @@index([name])
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  teamId    String
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@index([teamId])
+}
+
+enum TaskAssignmentType {
+  INDIVIDUAL
+  TEAM
+  ALL_USERS
+}
+
 model MarketingTask {
-  id           String     @id @default(cuid())
-  title        String
-  description  String?
-  status       TaskStatus @default(TODO)
-  priority     Priority   @default(MEDIUM)
-  dueDate      DateTime?
-  completedAt  DateTime?
-  assignedToId String
-  createdById  String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  assignedTo   User       @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: Cascade)
-  createdBy    User       @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  id                 String             @id @default(cuid())
+  title              String
+  description        String?
+  status             TaskStatus         @default(TODO)
+  priority           Priority           @default(MEDIUM)
+  category           String?
+  dueDate            DateTime?
+  completedAt        DateTime?
+  assignmentType     TaskAssignmentType @default(INDIVIDUAL)
+  assignedToId       String?
+  assignedToTeamId   String?
+  createdById        String
+  remarks            String?
+  attachments        String[]
+  submissionNote     String?
+  submittedAt        DateTime?
+  submittedFiles     String[]
+  notificationSent   Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  assignedTo         User?              @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedToTeam     Team?              @relation(fields: [assignedToTeamId], references: [id], onDelete: SetNull)
+  createdBy          User               @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  progressUpdates    TaskProgress[]
 
   @@index([assignedToId, status])
+  @@index([assignedToTeamId])
   @@index([createdById])
   @@index([dueDate])
+  @@index([assignmentType])
+}
+
+model TaskProgress {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  status    TaskStatus
+  progress  Int      @default(0)
+  comment   String?
+  createdAt DateTime @default(now())
+  task      MarketingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
 }
 
 model CalendarEvent {
@@ -237,4 +315,35 @@ model AuditLog {
   @@index([actorId])
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+enum ChatStatus {
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+model ChatMessage {
+  id          String     @id @default(cuid())
+  userId      String
+  content     String
+  recipient   String
+  channel     String     @default("WhatsApp")
+  status      ChatStatus @default(SENT)
+  sentAt      DateTime   @default(now())
+  deliveredAt DateTime?
+  readAt      DateTime?
+  repliedAt   DateTime?
+  hasReply    Boolean    @default(false)
+  replyContent String?
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([sentAt])
+  @@index([channel])
 }

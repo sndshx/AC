@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { UserAIInsights } from "@/app/user/_components/ai-insights/user-ai-insights";
 
 export default function UserAIInsightsPage() {
-  return <ModulePage moduleKey="ai-insights" role="USER" />;
+  return <UserAIInsights />;
 }

@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { UserCalendar } from "@/app/user/_components/calendar/user-calendar";
 
 export default function UserCalendarPage() {
-  return <ModulePage moduleKey="calendar" role="USER" />;
+  return <UserCalendar />;
 }

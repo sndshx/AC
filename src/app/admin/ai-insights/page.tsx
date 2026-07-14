@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/shared/dashboard/module-page";
+import { AdminAIInsights } from "@/app/admin/_components/ai-insights/admin-ai-insights";
 
 export default function AdminAIInsightsPage() {
-  return <ModulePage moduleKey="ai-insights" role="ADMIN" />;
+  return <AdminAIInsights />;
 }

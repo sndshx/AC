@@ -115,27 +115,24 @@ export const faqItems = [
 export const adminNav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/admin/users", label: "Users", icon: Users },
-  { href: "/admin/tasks", label: "Tasks", icon: CheckCircle2 },
-  { href: "/admin/activity", label: "Activity", icon: Activity },
+  { href: "/admin/activity-logs", label: "Activity Logs", icon: Activity },
+  { href: "/admin/activity-logs/all-dates", label: "All Dates History", icon: CalendarDays },
+  { href: "/admin/ai-insights", label: "AI Insights", icon: Sparkles },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/admin/ai-insights", label: "AI Insights", icon: Bot },
-  { href: "/admin/whatsapp", label: "WhatsApp", icon: MessageSquareText },
+  { href: "/admin/marketing", label: "Marketing", icon: Bot },
+  { href: "/admin/tasks", label: "Tasks", icon: CheckCircle2 },
   { href: "/admin/reports", label: "Reports", icon: FileBarChart },
-  { href: "/admin/analytics", label: "Analytics", icon: LineChart },
-  { href: "/admin/notifications", label: "Notifications", icon: Bell },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
-  { href: "/admin/profile", label: "Profile", icon: WalletCards }
+  { href: "/admin/settings", label: "Settings", icon: Settings }
 ];
 
 export const userNav = [
   { href: "/user/dashboard", label: "Dashboard", icon: BarChart3 },
-  { href: "/user/tasks", label: "My Tasks", icon: CheckCircle2 },
-  { href: "/user/activity", label: "My Activity", icon: Activity },
-  { href: "/user/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/user/ai-insights", label: "AI Insights", icon: Bot },
-  { href: "/user/reports", label: "My Reports", icon: FileBarChart },
+  { href: "/user/activity-log", label: "Activity Log", icon: Activity },
+  { href: "/user/ai-insights", label: "AI Insights", icon: Sparkles },
+  { href: "/user/marketing", label: "Marketing", icon: Bot },
+  { href: "/user/tasks", label: "Tasks", icon: CheckCircle2 },
+  { href: "/user/reports", label: "Reports", icon: FileBarChart },
   { href: "/user/notifications", label: "Notifications", icon: Bell },
-  { href: "/user/profile", label: "Profile", icon: WalletCards },
   { href: "/user/settings", label: "Settings", icon: Settings }
 ];
 
