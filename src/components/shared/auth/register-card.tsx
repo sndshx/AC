@@ -44,7 +44,7 @@ export function RegisterCard() {
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fullName, email, password }),
+      body: JSON.stringify({ fullName, email, password, confirmPassword }),
     });
 
     const data = await response.json();
@@ -174,14 +174,14 @@ export function RegisterCard() {
           width: 100%; max-width: 480px;
           overflow: hidden;
         }
-        
+
         @media (max-width: 640px) {
-          .ac-root { 
-            padding: 0.75rem; 
-            align-items: flex-start; 
+          .ac-root {
+            padding: 0.75rem;
+            align-items: flex-start;
             padding-top: 2rem;
           }
-          .ac-card { 
+          .ac-card {
             max-width: 100%;
             border-radius: 12px;
           }
@@ -192,25 +192,25 @@ export function RegisterCard() {
           padding: 1.5rem;
           border-bottom: 1px solid #eef2f0;
         }
-        
+
         @media (max-width: 640px) {
-          .ac-logo-header { 
+          .ac-logo-header {
             padding: 1.25rem 1rem;
           }
         }
 
         .ac-body { padding: 1.75rem 2rem 1.5rem; }
-        
+
         @media (max-width: 640px) {
-          .ac-body { 
+          .ac-body {
             padding: 1.5rem 1.25rem 1.25rem;
           }
         }
 
-        .ac-tabs { 
-          display: flex; 
-          gap: 0; 
-          margin-bottom: 1.25rem; 
+        .ac-tabs {
+          display: flex;
+          gap: 0;
+          margin-bottom: 1.25rem;
           justify-content: center;
           background: #f8faf9;
           border-radius: 12px;
@@ -219,7 +219,7 @@ export function RegisterCard() {
         }
         .ac-tab {
           font-size: 0.9rem; font-weight: 700; color: #6b7570;
-          text-decoration: none; 
+          text-decoration: none;
           padding: 0.75rem 1.5rem;
           border-radius: 8px;
           transition: all 0.2s ease;
@@ -227,9 +227,9 @@ export function RegisterCard() {
           text-align: center;
           min-width: 80px;
         }
-        
+
         @media (max-width: 640px) {
-          .ac-tabs { 
+          .ac-tabs {
             margin-bottom: 1rem;
           }
           .ac-tab {
@@ -238,21 +238,21 @@ export function RegisterCard() {
           }
         }
         .ac-tab:hover { color: #16a34a; }
-        .ac-tab-active { 
-          color: #16a34a; 
+        .ac-tab-active {
+          color: #16a34a;
           background: #ffffff;
           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .ac-title { font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-bottom: 0.2rem; }
         .ac-sub { font-size: 0.83rem; color: #6b7570; margin-bottom: 1.25rem; }
-        
+
         @media (max-width: 640px) {
-          .ac-title { 
+          .ac-title {
             font-size: 1.2rem;
             text-align: center;
           }
-          .ac-sub { 
+          .ac-sub {
             font-size: 0.8rem;
             text-align: center;
             margin-bottom: 1rem;
@@ -275,7 +275,7 @@ export function RegisterCard() {
           padding: 0.6rem 0; font-size: 0.85rem; color: #0f172a;
         }
         .ac-input::placeholder { color: #a4aca7; }
-        
+
         /* Remove autocomplete blue background */
         .ac-input:-webkit-autofill {
           -webkit-box-shadow: 0 0 0 1000px white inset !important;
@@ -292,14 +292,14 @@ export function RegisterCard() {
         }
         .ac-eye { background: none; border: none; cursor: pointer; color: #8a9a92; display: flex; }
         .ac-eye:hover { color: #16a34a; }
-        
+
         @media (max-width: 640px) {
           .ac-field {
             gap: 0.5rem;
             padding: 0.08rem 0.75rem;
           }
           .ac-input {
-            padding: 0.58rem 0; 
+            padding: 0.58rem 0;
             font-size: 0.82rem;
           }
           .ac-ic { width: 14px; height: 14px; }
@@ -315,7 +315,7 @@ export function RegisterCard() {
           font-size: 0.76rem; color: #5b6b63; cursor: pointer; line-height: 1.4;
         }
         .ac-terms-check { margin-top: 2px; accent-color: #22c55e; flex-shrink: 0; }
-        
+
         @media (max-width: 640px) {
           .ac-terms-row {
             font-size: 0.74rem;
@@ -332,7 +332,7 @@ export function RegisterCard() {
         }
         .ac-submit:hover:not(:disabled) { background: #16a34a; }
         .ac-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-        
+
         @media (max-width: 640px) {
           .ac-submit {
             padding: 0.7rem 1rem;

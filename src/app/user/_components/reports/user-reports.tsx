@@ -206,8 +206,219 @@ export function UserReports() {
     });
   }, [searchQuery, taskFilter]);
 
-  const handleExport = (format: "PDF" | "Excel") => {
-    console.log(`Exporting ${format} report...`);
+  const downloadMyTasks = async () => {
+    try {
+      // Fetch real tasks from API
+      const response = await fetch('/api/tasks');
+      const data = await response.ok ? await response.json() : { tasks: myTasks };
+      
+      const tasksToExport = data.tasks || myTasks;
+      
+      // Generate CSV content
+      const csvContent = `
+MY TASKS REPORT
+Generated: ${new Date().toLocaleString()}
+Filter Applied: ${taskFilter === "all" ? "All Tasks" : taskFilter}
+Total Tasks: ${tasksToExport.length}
+
+TASK DETAILS
+Task ID,Title,Description,Priority,Status,Category,Due Date,Completed Date,Time Spent,Notes
+${tasksToExport.map((t: MyTask) => 
+  `"${t.id}","${t.title}","${t.description}",${t.priority},${t.status},${t.category},${t.dueDate},${t.completedDate || 'Not Completed'},${formatTime(t.timeSpent)},"Task assigned to me"`
+).join('\n')}
+
+SUMMARY BY STATUS
+${Object.entries(
+  tasksToExport.reduce((acc: any, t: MyTask) => {
+    acc[t.status] = (acc[t.status] || 0) + 1;
+    return acc;
+  }, {})
+).map(([status, count]) => `${status},${count}`).join('\n')}
+
+SUMMARY BY PRIORITY
+${Object.entries(
+  tasksToExport.reduce((acc: any, t: MyTask) => {
+    acc[t.priority] = (acc[t.priority] || 0) + 1;
+    return acc;
+  }, {})
+).map(([priority, count]) => `${priority},${count}`).join('\n')}
+
+SUMMARY BY CATEGORY
+${Object.entries(
+  tasksToExport.reduce((acc: any, t: MyTask) => {
+    acc[t.category] = (acc[t.category] || 0) + 1;
+    return acc;
+  }, {})
+).map(([category, count]) => `${category},${count}`).join('\n')}
+
+PERFORMANCE METRICS
+Total Time Spent,${tasksToExport.reduce((sum: number, t: MyTask) => sum + t.timeSpent, 0)} minutes
+Average Time Per Task,${Math.round(tasksToExport.reduce((sum: number, t: MyTask) => sum + t.timeSpent, 0) / tasksToExport.length)} minutes
+Completed Tasks,${tasksToExport.filter((t: MyTask) => t.status === 'Completed').length}
+In Progress Tasks,${tasksToExport.filter((t: MyTask) => t.status === 'In Progress').length}
+Pending Tasks,${tasksToExport.filter((t: MyTask) => t.status === 'Todo').length}
+Overdue Tasks,${tasksToExport.filter((t: MyTask) => t.status === 'Overdue').length}
+      `.trim();
+
+      // Create and download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `My_Tasks_Report_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      alert('Tasks downloaded successfully!');
+    } catch (error) {
+      console.error('Error downloading tasks:', error);
+      alert('Failed to download tasks. Please try again.');
+    }
+  };
+
+  const handleExport = async (format: "PDF" | "Excel") => {
+    try {
+      // Fetch real activity log data from API
+      const response = await fetch('/api/user/activity-logs');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch activity data');
+      }
+      
+      const data = await response.json();
+      
+      if (format === "PDF") {
+        // Generate PDF report
+        generatePDFReport(data);
+      } else {
+        // Generate Excel report
+        generateExcelReport(data);
+      }
+    } catch (error) {
+      console.error(`Error exporting ${format} report:`, error);
+      alert(`Failed to export ${format} report. Please try again.`);
+    }
+  };
+
+  const generatePDFReport = (data: any) => {
+    // Create PDF content
+    const reportContent = `
+===========================================
+MY PERFORMANCE REPORT
+===========================================
+Generated: ${new Date().toLocaleString()}
+
+PERFORMANCE OVERVIEW
+-------------------------------------------
+Total Campaigns: ${myPerformance.totalCampaigns}
+Completed Tasks: ${myPerformance.completedTasks}/${myPerformance.totalTasks}
+Messages Sent: ${formatNumber(myPerformance.totalMessagesSent)}
+Reply Rate: ${formatPercentage(myPerformance.avgReplyRate)}
+Efficiency Score: ${formatPercentage(myPerformance.efficiency)}
+Monthly Progress: ${formatNumber(myPerformance.monthlyProgress)}/${formatNumber(myPerformance.monthlyGoal)}
+
+CAMPAIGNS
+-------------------------------------------
+${myCampaigns.map((c, i) => `
+${i + 1}. ${c.name}
+   Channel: ${c.channel}
+   Status: ${c.status}
+   Role: ${c.myRole}
+   Sent: ${formatNumber(c.totalSent)}
+   Delivered: ${formatNumber(c.delivered)} (${formatPercentage(c.deliveryRate)})
+   Opened: ${formatNumber(c.opened)} (${formatPercentage(c.openRate)})
+   Replied: ${formatNumber(c.replied)} (${formatPercentage(c.replyRate)})
+   Converted: ${formatNumber(c.converted)} (${formatPercentage(c.conversionRate)})
+`).join('\n')}
+
+TASKS
+-------------------------------------------
+${myTasks.map((t, i) => `
+${i + 1}. ${t.title}
+   Status: ${t.status}
+   Priority: ${t.priority}
+   Category: ${t.category}
+   Due Date: ${t.dueDate}
+   ${t.completedDate ? `Completed: ${t.completedDate}` : ''}
+   Time Spent: ${formatTime(t.timeSpent)}
+`).join('\n')}
+
+ACTIVITY LOGS
+-------------------------------------------
+${data.activityLogs?.map((log: any, i: number) => `
+${i + 1}. Date: ${new Date(log.date).toLocaleDateString()}
+   Messages: ${log.messageCount}
+   ${log.remarks ? `Notes: ${log.remarks}` : ''}
+`).join('\n') || 'No activity logs available'}
+
+===========================================
+Report generated by AI Marketing System
+===========================================
+    `;
+
+    // Create and download PDF
+    const blob = new Blob([reportContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `My_Performance_Report_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateExcelReport = (data: any) => {
+    // Create CSV content (Excel compatible)
+    const csvContent = `
+MY PERFORMANCE REPORT
+Generated: ${new Date().toLocaleString()}
+
+OVERVIEW METRICS
+Metric,Value
+Total Campaigns,${myPerformance.totalCampaigns}
+Total Tasks,${myPerformance.totalTasks}
+Completed Tasks,${myPerformance.completedTasks}
+Overdue Tasks,${myPerformance.overdueTasks}
+Average Task Time,${formatTime(myPerformance.averageTaskTime)}
+Total Messages Sent,${myPerformance.totalMessagesSent}
+Average Reply Rate,${myPerformance.avgReplyRate}%
+Average Conversion Rate,${myPerformance.avgConversionRate}%
+Efficiency Score,${myPerformance.efficiency}%
+Monthly Goal,${myPerformance.monthlyGoal}
+Monthly Progress,${myPerformance.monthlyProgress}
+
+CAMPAIGNS
+Campaign Name,Channel,Status,Role,Total Sent,Delivered,Opened,Replied,Converted,Delivery Rate,Open Rate,Reply Rate,Conversion Rate,Start Date,End Date
+${myCampaigns.map(c => 
+  `"${c.name}",${c.channel},${c.status},"${c.myRole}",${c.totalSent},${c.delivered},${c.opened},${c.replied},${c.converted},${c.deliveryRate}%,${c.openRate}%,${c.replyRate}%,${c.conversionRate}%,${c.startDate},${c.endDate || 'Ongoing'}`
+).join('\n')}
+
+TASKS
+Task Title,Description,Priority,Status,Category,Due Date,Completed Date,Time Spent (minutes)
+${myTasks.map(t => 
+  `"${t.title}","${t.description}",${t.priority},${t.status},${t.category},${t.dueDate},${t.completedDate || 'N/A'},${t.timeSpent}`
+).join('\n')}
+
+ACTIVITY LOGS
+Date,Messages Sent,Remarks
+${data.activityLogs?.map((log: any) => 
+  `${new Date(log.date).toLocaleDateString()},${log.messageCount},"${log.remarks || ''}"`
+).join('\n') || 'No activity logs available'}
+    `.trim();
+
+    // Create and download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `My_Performance_Report_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -243,7 +454,7 @@ export function UserReports() {
         </div>
       </div>
       {/* Performance Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
@@ -274,28 +485,6 @@ export function UserReports() {
             </div>
             <p className="text-2xl font-bold text-purple-600">{formatNumber(myPerformance.totalMessagesSent)}</p>
             <p className="text-[9px] text-slate-500 mt-0.5">this month</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-orange-600" />
-              <p className="text-[10px] text-orange-600 font-medium">Reply Rate</p>
-            </div>
-            <p className="text-2xl font-bold text-orange-600">{formatPercentage(myPerformance.avgReplyRate)}</p>
-            <p className="text-[9px] text-slate-500 mt-0.5">average</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-slate-200/60 shadow-sm hover:shadow-md transition-all">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Zap className="h-4 w-4 text-amber-600" />
-              <p className="text-[10px] text-amber-600 font-medium">Efficiency</p>
-            </div>
-            <p className="text-2xl font-bold text-amber-600">{formatPercentage(myPerformance.efficiency)}</p>
-            <p className="text-[9px] text-slate-500 mt-0.5">score</p>
           </CardContent>
         </Card>
 
@@ -550,6 +739,14 @@ export function UserReports() {
                     <option value="Todo">Todo</option>
                     <option value="Overdue">Overdue</option>
                   </select>
+                  <Button
+                    onClick={() => downloadMyTasks()}
+                    size="sm"
+                    className="h-8 text-xs px-3 gap-1.5 bg-[#00C853] hover:bg-[#00C853]/90"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Download Tasks
+                  </Button>
                 </div>
               </div>
             </CardContent>

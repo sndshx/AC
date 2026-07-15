@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Users, MessageSquare, ShieldCheck, Activity, CheckCircle2, Clock, 
-  ArrowUpRight, RefreshCw, ChevronRight, TrendingUp, Bot
+  ArrowUpRight, RefreshCw, ChevronRight, TrendingUp, Bot, CalendarDays, Settings
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip,
@@ -228,91 +228,131 @@ export function AdminDashboard() {
 
       {/* == Row 1: 4 primary stat cards ======================== */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard
-          icon={Users}
-          iconBg="bg-gradient-to-br from-blue-50 to-blue-100"
-          iconColor="text-blue-600"
-          badge="6 new"
-          value="16"
-          label="Total Team Members"
-          sub="Active marketing team across all departments"
-          trend="+37% vs last month"
-        />
-        <StatCard
-          icon={MessageSquare}
-          iconBg="bg-gradient-to-br from-emerald-50 to-emerald-100"
-          iconColor="text-emerald-700"
-          badge="↑18%"
-          value="8,680"
-          label="Messages Sent (7d)"
-          sub="1,240 avg per day • 72% open rate"
-          trend="+1,240 vs last week"
-        />
-        <StatCard
-          icon={Activity}
-          iconBg="bg-gradient-to-br from-green-50 to-green-100"
-          iconColor="text-green-600"
-          badge="95% avg"
-          badgeColor="text-emerald-600"
-          value="2,167"
-          label="Campaign Replies"
-          sub="25% conversion • 542 qualified leads"
-          trend="+312 vs last week"
-        />
-        <StatCard
-          icon={CheckCircle2}
-          iconBg="bg-gradient-to-br from-indigo-50 to-indigo-100"
-          iconColor="text-indigo-600"
-          badge="58% done"
-          badgeColor="text-indigo-600"
-          value="244"
-          label="Marketing Tasks"
-          sub="142 completed • 68 in progress • 34 pending"
-          trend="+28 completed today"
-        />
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/users')}
+        >
+          <StatCard
+            icon={Users}
+            iconBg="bg-gradient-to-br from-blue-50 to-blue-100"
+            iconColor="text-blue-600"
+            badge="6 new"
+            value="16"
+            label="Total Team Members"
+            sub="Active marketing team across all departments"
+            trend="+37% vs last month"
+          />
+        </div>
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/activity-logs')}
+        >
+          <StatCard
+            icon={MessageSquare}
+            iconBg="bg-gradient-to-br from-emerald-50 to-emerald-100"
+            iconColor="text-emerald-700"
+            badge="↑18%"
+            value="8,680"
+            label="Messages Sent (7d)"
+            sub="1,240 avg per day • 72% open rate"
+            trend="+1,240 vs last week"
+          />
+        </div>
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/marketing')}
+        >
+          <StatCard
+            icon={Activity}
+            iconBg="bg-gradient-to-br from-green-50 to-green-100"
+            iconColor="text-green-600"
+            badge="95% avg"
+            badgeColor="text-emerald-600"
+            value="2,167"
+            label="Campaign Replies"
+            sub="25% conversion • 542 qualified leads"
+            trend="+312 vs last week"
+          />
+        </div>
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/tasks')}
+        >
+          <StatCard
+            icon={CheckCircle2}
+            iconBg="bg-gradient-to-br from-indigo-50 to-indigo-100"
+            iconColor="text-indigo-600"
+            badge="58% done"
+            badgeColor="text-indigo-600"
+            value="244"
+            label="Marketing Tasks"
+            sub="142 completed • 68 in progress • 34 pending"
+            trend="+28 completed today"
+          />
+        </div>
       </div>
 
       {/* == Row 2: 4 secondary stat cards ====================== */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <SmallStat 
-          icon={Bot} 
-          iconBg="bg-gradient-to-br from-purple-50 to-purple-100" 
-          iconColor="text-purple-600" 
-          value="12" 
-          label="AI Recommendations" 
-          subtitle="3 new today"
-        />
-        <SmallStat 
-          icon={TrendingUp} 
-          iconBg="bg-gradient-to-br from-emerald-50 to-emerald-100" 
-          iconColor="text-emerald-600" 
-          value="88%" 
-          label="Avg Success Rate" 
-          subtitle="↑4% this week"
-        />
-        <SmallStat 
-          icon={Clock} 
-          iconBg="bg-gradient-to-br from-amber-50 to-amber-100" 
-          iconColor="text-amber-600" 
-          value="2.4h" 
-          label="Avg Response Time" 
-          subtitle="↓30min improvement"
-        />
-        <SmallStat 
-          icon={ShieldCheck} 
-          iconBg="bg-gradient-to-br from-blue-50 to-blue-100" 
-          iconColor="text-blue-600" 
-          value="15/16" 
-          label="Healthy WhatsApp" 
-          subtitle="1 needs attention"
-        />
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/reports')}
+        >
+          <SmallStat 
+            icon={Bot} 
+            iconBg="bg-gradient-to-br from-purple-50 to-purple-100" 
+            iconColor="text-purple-600" 
+            value="12" 
+            label="AI Recommendations" 
+            subtitle="3 new today"
+          />
+        </div>
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/reports')}
+        >
+          <SmallStat 
+            icon={TrendingUp} 
+            iconBg="bg-gradient-to-br from-emerald-50 to-emerald-100" 
+            iconColor="text-emerald-600" 
+            value="88%" 
+            label="Avg Success Rate" 
+            subtitle="↑4% this week"
+          />
+        </div>
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/activity-logs')}
+        >
+          <SmallStat 
+            icon={Clock} 
+            iconBg="bg-gradient-to-br from-amber-50 to-amber-100" 
+            iconColor="text-amber-600" 
+            value="2.4h" 
+            label="Avg Response Time" 
+            subtitle="↓30min improvement"
+          />
+        </div>
+        <div 
+          className="cursor-pointer transform transition-all hover:scale-105"
+          onClick={() => router.push('/admin/marketing')}
+        >
+          <SmallStat 
+            icon={ShieldCheck} 
+            iconBg="bg-gradient-to-br from-blue-50 to-blue-100" 
+            iconColor="text-blue-600" 
+            value="15/16" 
+            label="Healthy WhatsApp" 
+            subtitle="1 needs attention"
+          />
+        </div>
       </div>
 
       {/* == Row 3: Line chart + Donut chart ==================== */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 
         {/* Campaign Activity */}
-        <Card className="lg:col-span-2 border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
+        <Card className="lg:col-span-2 border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/reports')}>
           <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between">
               <div>
@@ -392,7 +432,7 @@ export function AdminDashboard() {
         </Card>
 
         {/* Team Roles */}
-        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
+        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/users')}>
           <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
             <CardTitle className="text-xs font-bold text-slate-900 dark:text-white">Team Composition</CardTitle>
             <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Member distribution by role type</p>
@@ -539,7 +579,11 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2 space-y-1.5">
             {recentUsers.map((u, i) => (
-              <div key={i} className="flex items-center gap-2">
+              <div 
+                key={i} 
+                className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                onClick={() => router.push(`/admin/users`)}
+              >
                 <Avatar className="h-6 w-6 border border-slate-200 dark:border-slate-700">
                   <AvatarFallback className="bg-[#E8F7EE] dark:bg-[#143D2C] text-[#143D2C] dark:text-[#E8F7EE] text-[8px] font-normal">
                     {u.name.split(' ').map(n => n[0]).join('')}
@@ -549,9 +593,12 @@ export function AdminDashboard() {
                   <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 truncate">{u.name}</p>
                   <p className="text-[8px] text-slate-400 dark:text-slate-500 truncate">{u.email}</p>
                 </div>
-                <span className={`text-[8px] font-normal uppercase px-1 py-0.5 rounded tracking-wide ${roleColor[u.role]}`}>
-                  {u.role}
-                </span>
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className={`text-[8px] font-normal uppercase px-1 py-0.5 rounded tracking-wide ${roleColor[u.role]}`}>
+                    {u.role}
+                  </span>
+                  <span className="text-[7px] text-slate-400 dark:text-slate-500">{u.lastActive}</span>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -572,21 +619,230 @@ export function AdminDashboard() {
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2 space-y-1.5">
             {recentTasks.map((t, i) => (
-              <div key={i} className="flex items-start justify-between gap-2">
+              <div 
+                key={i} 
+                className="flex items-start justify-between gap-2 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                onClick={() => router.push('/admin/tasks')}
+              >
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{t.title}</p>
-                  <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">Assigned to {t.assignee}</p>
+                  <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 truncate">{t.title}</p>
+                  <p className="text-[8px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    {t.assignee} • {t.dueDate}
+                  </p>
                 </div>
-                <div className="flex-shrink-0 text-right">
-                  <span className={`text-[9px] font-normal uppercase tracking-wide px-1.5 py-0.5 rounded ${priorityColor[t.priority]}`}>
+                <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
+                  <span className={`text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${priorityColor[t.priority]}`}>
                     {t.priority}
                   </span>
-                  <p className="text-[9px] font-normal uppercase tracking-wide text-slate-500 dark:text-slate-400 mt-1">
+                  <span className={`text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${taskStatusColor[t.status]}`}>
                     {t.status.replace('_', ' ')}
-                  </p>
+                  </span>
                 </div>
               </div>
             ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* == Row 7: Hourly Activity Pattern ========================= */}
+      <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
+        <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                <Clock className="h-3 w-3 text-[#00C853]" />
+                Hourly Activity Pattern
+              </CardTitle>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Team activity distribution across 24 hours</p>
+            </div>
+            <Badge className="bg-[#E8F7EE] text-[#143D2C] dark:bg-[#143D2C] dark:text-[#E8F7EE] text-[9px] font-semibold px-2 py-0.5">
+              Peak: 3pm
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="px-2 pb-3 pt-2">
+          <div className="h-32">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={hourlyActivityData} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00C853" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#00C853" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.15)" />
+                <XAxis 
+                  dataKey="hour" 
+                  fontSize={9} 
+                  fontWeight={600}
+                  tickLine={false} 
+                  axisLine={false} 
+                  tick={{ fill: "#64748b" }} 
+                />
+                <YAxis 
+                  fontSize={9} 
+                  fontWeight={600}
+                  tickLine={false} 
+                  axisLine={false} 
+                  tick={{ fill: "#64748b" }} 
+                />
+                <Tooltip 
+                  content={<ChartTooltip />} 
+                  cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="activity" 
+                  stroke="#00C853" 
+                  strokeWidth={2.5} 
+                  dot={{ r: 3, fill: "#00C853", strokeWidth: 2, stroke: "#fff" }} 
+                  activeDot={{ r: 5 }}
+                  name="Activity"
+                  fill="url(#activityGradient)"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* == Row 8: Performance Insights Grid ======================= */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        
+        {/* Top Performers */}
+        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/users')}>
+          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
+            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
+              <TrendingUp className="h-3 w-3 text-[#00C853]" />
+              Top Performers
+            </CardTitle>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Highest reply rates this week</p>
+          </CardHeader>
+          <CardContent className="px-3 pb-3 pt-2 space-y-2">
+            {whatsappHealthStats.sort((a, b) => b.rate - a.rate).slice(0, 3).map((w, i) => (
+              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-emerald-50 to-transparent dark:from-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-[#00C853] text-white text-[9px] font-bold">
+                    #{i + 1}
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200">{w.user}</p>
+                    <p className="text-[8px] text-slate-500 dark:text-slate-400">{w.replies} replies</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-[#00C853]">{w.rate}%</p>
+                  <p className="text-[7px] text-slate-400 dark:text-slate-500 uppercase">Rate</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Campaign Stats */}
+        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/marketing')}>
+          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
+            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
+              <Activity className="h-3 w-3 text-[#00C853]" />
+              Campaign Statistics
+            </CardTitle>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Overall campaign metrics</p>
+          </CardHeader>
+          <CardContent className="px-3 pb-3 pt-2 space-y-2.5">
+            <div 
+              className="flex items-center justify-between p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+              onClick={() => router.push('/admin/marketing')}
+            >
+              <div>
+                <p className="text-[9px] text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wide">Active Campaigns</p>
+                <p className="text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">12</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+                <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            <div 
+              className="flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+              onClick={() => router.push('/admin/reports')}
+            >
+              <div>
+                <p className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wide">Avg Open Rate</p>
+                <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-0.5">72%</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                <Activity className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
+            <div 
+              className="flex items-center justify-between p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-900/30 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+              onClick={() => router.push('/admin/reports')}
+            >
+              <div>
+                <p className="text-[9px] text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wide">Conversion Rate</p>
+                <p className="text-xl font-bold text-purple-700 dark:text-purple-300 mt-0.5">25%</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
+          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
+            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
+              <Bot className="h-3 w-3 text-[#00C853]" />
+              Quick Actions
+            </CardTitle>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Manage your workspace</p>
+          </CardHeader>
+          <CardContent className="px-3 pb-3 pt-2 space-y-1.5">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full justify-start text-[10px] h-8 font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-[#143D2C] dark:hover:text-[#00C853] hover:border-[#00C853]"
+              onClick={() => router.push('/admin/users')}
+            >
+              <Users className="h-3.5 w-3.5 mr-2" />
+              Manage Team Members
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full justify-start text-[10px] h-8 font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-[#143D2C] dark:hover:text-[#00C853] hover:border-[#00C853]"
+              onClick={() => router.push('/admin/tasks')}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 mr-2" />
+              Create New Task
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full justify-start text-[10px] h-8 font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-[#143D2C] dark:hover:text-[#00C853] hover:border-[#00C853]"
+              onClick={() => router.push('/admin/calendar')}
+            >
+              <CalendarDays className="h-3.5 w-3.5 mr-2" />
+              Schedule Campaign
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full justify-start text-[10px] h-8 font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-[#143D2C] dark:hover:text-[#00C853] hover:border-[#00C853]"
+              onClick={() => router.push('/admin/reports')}
+            >
+              <Activity className="h-3.5 w-3.5 mr-2" />
+              Generate Report
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full justify-start text-[10px] h-8 font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 hover:text-[#143D2C] dark:hover:text-[#00C853] hover:border-[#00C853]"
+              onClick={() => router.push('/admin/settings')}
+            >
+              <Settings className="h-3.5 w-3.5 mr-2" />
+              System Settings
+            </Button>
           </CardContent>
         </Card>
       </div>

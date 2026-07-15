@@ -533,14 +533,6 @@ function UserDashboardView({ data, refetch }: UserDashboardViewProps) {
       progress: 82.4,
       icon: Target,
       tone: "success" as const
-    },
-    {
-      label: "AI Suggestions",
-      value: "3 New",
-      trend: "High confidence suggestions",
-      progress: 95,
-      icon: Bot,
-      tone: "info" as const
     }
   ];
 
@@ -566,7 +558,7 @@ function UserDashboardView({ data, refetch }: UserDashboardViewProps) {
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 px-5 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-1.5">
-              <span>🚀 My Workspace Dashboard</span>
+              <span>My Workspace Dashboard</span>
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Track outreach targets, connections, and campaign tasks aligned with the ArticleCraft system.
@@ -588,8 +580,8 @@ function UserDashboardView({ data, refetch }: UserDashboardViewProps) {
           </div>
         </div>
 
-        {/* 4 Stats Cards */}
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 3 Stats Cards */}
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {userStats.map((stat, i) => (
             <div key={i} className="transform transition-all hover:scale-[1.02] hover:shadow-xl">
               <StatCard {...stat} />
@@ -810,52 +802,6 @@ function UserDashboardView({ data, refetch }: UserDashboardViewProps) {
             
             {/* Daily Activity Update Form */}
             <DailyActivityForm />
-            
-            {/* Upcoming Meetings & AI Suggestions */}
-            <Card className="shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <CardTitle className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-[#00C853]" />
-                  Upcoming Meetings
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Schedule campaign meetings and reviews
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 space-y-4">
-                
-                {/* Meetings List */}
-                <div className="space-y-3">
-                  {[
-                    { title: "Weekly AI Performance Review", time: "Today, 10:00 AM", type: "Urgent" },
-                    { title: "Outbound Content Planning", time: "Tomorrow, 2:00 PM", type: "Regular" },
-                    { title: "Client Feedback Standup", time: "Jul 15, 11:30 AM", type: "Follow-up" }
-                  ].map((meeting, index) => (
-                    <div key={index} className="flex justify-between items-start p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-xs">
-                      <div>
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">{meeting.title}</p>
-                        <p className="text-[10px] text-slate-400 mt-1">{meeting.time}</p>
-                      </div>
-                      <Badge className="text-[9px] px-1.5 py-0.5" tone={meeting.type === "Urgent" ? "warning" : "info"}>
-                        {meeting.type}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-
-                {/* AI Suggestions Box */}
-                <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-lg space-y-2">
-                  <div className="flex items-center gap-1.5">
-                    <Bot className="h-4 w-4 text-[#143D2C] dark:text-[#00C853]" />
-                    <span className="text-xs font-bold text-[#143D2C] dark:text-emerald-400">AI Suggestions</span>
-                  </div>
-                  <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5 list-disc pl-4 font-medium">
-                    <li>Optimal sending window is <strong className="text-slate-800 dark:text-slate-200">10:00 - 11:30 AM</strong>.</li>
-                    <li>Shorter CTA templates yield <strong className="text-slate-800 dark:text-slate-200">12% higher reply rate</strong>.</li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
 
             {/* Recent Notifications Feed */}
             <Card className="shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
