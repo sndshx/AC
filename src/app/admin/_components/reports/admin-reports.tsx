@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { 
-  Download, Calendar, Users, MessageSquare, TrendingUp, TrendingDown,
-  Target, Clock, CheckCircle2, AlertCircle, Filter, Search, Eye,
+  Download, Users, MessageSquare, TrendingUp, TrendingDown,
+  Target, Clock, CheckCircle2, Filter, Search,
   FileText, BarChart3, Activity, Zap, ArrowUpRight, ArrowDownRight, X,
-  ChevronDown
+  ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
+  Shield, Wifi, WifiOff, Star, User, Loader2, RefreshCw, XCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,6 +107,91 @@ interface UserActivity {
     email: string;
     role: string;
   };
+}
+
+// ── User Report Types ────────────────────────────────────────────────────
+interface UserReportRow {
+  id: string;
+  fullName: string;
+  email: string;
+  role: "ADMIN" | "USER";
+  status: "ACTIVE" | "DISABLED";
+  teamName: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+  todayMarketingCount: number;
+  monthlyMarketingCount: number;
+  assignedTasks: number;
+  completedTasks: number;
+  pendingTasks: number;
+  aiScore: number;
+  whatsAppStatus: "ACTIVE" | "WARNING" | "LIMITED" | "BANNED" | null;
+  whatsAppHealthScore: number | null;
+}
+
+interface UserDetailData {
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+    status: string;
+    teamName: string | null;
+    createdAt: string;
+    lastLoginAt: string | null;
+    whatsAppStatus: {
+      status: string;
+      healthScore: number;
+      dailyMessages: number;
+      monthlyMessages: number;
+    } | null;
+    aiProgress: Array<{
+      id: string;
+      aiScore: number;
+      productivityScore: number;
+      period: string;
+      createdAt: string;
+    }>;
+    assignedTasks: Array<{
+      id: string;
+      title: string;
+      status: string;
+      priority: string;
+      dueDate: string | null;
+      completedAt: string | null;
+      createdAt: string;
+      category: string | null;
+    }>;
+    receivedRemarks: Array<{
+      id: string;
+      content: string;
+      createdAt: string;
+      createdBy: { fullName: string; role: string };
+    }>;
+    auditLogs: Array<{
+      id: string;
+      action: string;
+      entity: string;
+      createdAt: string;
+    }>;
+    activityLogs: Array<{
+      id: string;
+      date: string;
+      messageCount: number;
+    }>;
+  };
+  summary: {
+    totalAssigned: number;
+    totalCompleted: number;
+    totalPending: number;
+    latestAiScore: number;
+    todayMessages: number;
+    monthlyMessages: number;
+    whatsAppHealth: string | null;
+    whatsAppHealthScore: number | null;
+    completionRate: number;
+  };
+  chartData: Array<{ date: string; messageCount: number }>;
 }
 
 // Sample Data
@@ -846,41 +932,769 @@ function UserActivityGroup({ userId, activities }: { userId: string; activities:
   );
 }
 
-export function AdminReports() {
-  const [selectedTab, setSelectedTab] = useState("overview");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [channelFilter, setChannelFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
-  const [loadingActivities, setLoadingActivities] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<string>("today");
+// ── WhatsApp Status Badge ─────────────────────────────────────────────
+function WhatsAppBadge({ status, score }: { status: string | null; score: number | null }) {
+  if (!status) return <span className="text-xs text-slate-400">—</span>;
+  const config: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
+    ACTIVE:   { color: "bg-emerald-100 text-emerald-700 border-emerald-200", icon: <Wifi className="h-3 w-3" />, label: "Active" },
+    WARNING:  { color: "bg-amber-100 text-amber-700 border-amber-200",     icon: <Shield className="h-3 w-3" />,  label: "Warning" },
+    LIMITED:  { color: "bg-orange-100 text-orange-700 border-orange-200",  icon: <WifiOff className="h-3 w-3" />, label: "Limited" },
+    BANNED:   { color: "bg-red-100 text-red-700 border-red-200",           icon: <XCircle className="h-3 w-3" />, label: "Banned" },
+  };
+  const c = config[status] ?? config["WARNING"];
+  return (
+    <Badge className={cn("flex items-center gap-1 text-[10px] font-semibold border", c.color)}>
+      {c.icon}
+      {c.label}{score !== null ? ` (${score})` : ""}
+    </Badge>
+  );
+}
 
-  // Fetch user activities
+// ── User Detail Drawer ────────────────────────────────────────────────
+function UserDetailDrawer({ userId, onClose }: { userId: string; onClose: () => void }) {
+  const [data, setData] = useState<UserDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState("overview");
+
   useEffect(() => {
-    if (selectedTab === "activities") {
-      fetchUserActivities();
-    }
-  }, [selectedTab, selectedUserId, dateRange]);
+    setLoading(true);
+    fetch(`/api/admin/reports/users/${userId}`)
+      .then((r) => r.json())
+      .then((d) => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [userId]);
 
-  const fetchUserActivities = async () => {
-    setLoadingActivities(true);
+  const user = data?.user;
+  const summary = data?.summary;
+  const chartData = (data?.chartData ?? []).slice().reverse();
+
+  const initials = user?.fullName?.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) ?? "??";
+
+  const downloadReport = () => {
+    if (!data) return;
+    const { user: u, summary: s } = data;
+    const rows = [
+      ["Field", "Value"],
+      ["Name", u.fullName],
+      ["Email", u.email],
+      ["Role", u.role],
+      ["Team", u.teamName ?? "—"],
+      ["Status", u.status],
+      ["Today's Marketing", s.todayMessages],
+      ["Monthly Marketing", s.monthlyMessages],
+      ["Assigned Tasks", s.totalAssigned],
+      ["Completed Tasks", s.totalCompleted],
+      ["Pending Tasks", s.totalPending],
+      ["AI Score", s.latestAiScore],
+      ["WhatsApp Status", s.whatsAppHealth ?? "—"],
+      ["WhatsApp Health Score", s.whatsAppHealthScore ?? "—"],
+      ["Completion Rate", `${s.completionRate}%`],
+      ["", ""],
+      ["Tasks", ""],
+      ["Title", "Status", "Priority", "Due Date", "Completed At"],
+      ...u.assignedTasks.map((t) => [
+        t.title, t.status, t.priority,
+        t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—",
+        t.completedAt ? new Date(t.completedAt).toLocaleDateString() : "—",
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${u.fullName.replace(/\s+/g, "-")}-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end" onClick={onClose}>
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      {/* Panel */}
+      <div
+        className="relative z-10 w-full max-w-3xl bg-white h-full shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-300"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00C853] to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow">
+              {initials}
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-slate-900">{user?.fullName ?? "Loading..."}</h2>
+              <p className="text-xs text-slate-500">{user?.email}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" className="h-8 text-xs" onClick={downloadReport} disabled={!data}>
+              <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+            </Button>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 transition-colors">
+              <X className="h-4 w-4 text-slate-500" />
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-8 w-8 text-[#00C853] animate-spin" />
+              <p className="text-sm text-slate-500">Loading user report...</p>
+            </div>
+          </div>
+        ) : !data ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-slate-500">Failed to load user data.</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            {/* Section Nav */}
+            <div className="flex gap-1 px-6 pt-4 pb-2 border-b border-slate-100 sticky top-0 bg-white z-10">
+              {["overview", "tasks", "ai-progress", "activity", "remarks"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setActiveSection(s)}
+                  className={cn(
+                    "px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all capitalize",
+                    activeSection === s
+                      ? "bg-[#00C853] text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  {s.replace("-", " ")}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-6 space-y-5">
+
+              {/* ── Overview ── */}
+              {activeSection === "overview" && (
+                <>
+                  {/* Profile Info */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Role</p>
+                      <Badge className={cn(
+                        "text-xs font-semibold",
+                        user!.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                      )}>{user!.role}</Badge>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Team</p>
+                      <p className="text-sm font-bold text-slate-800">{user!.teamName ?? "—"}</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</p>
+                      <Badge className={cn(
+                        "text-xs font-semibold",
+                        user!.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                      )}>{user!.status}</Badge>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Login</p>
+                      <p className="text-xs font-medium text-slate-700">
+                        {user!.lastLoginAt ? new Date(user!.lastLoginAt).toLocaleString() : "Never"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {[
+                      { label: "Today's Marketing", value: summary!.todayMessages, color: "text-[#00C853]", bg: "bg-emerald-50" },
+                      { label: "Monthly Marketing", value: summary!.monthlyMessages, color: "text-blue-600", bg: "bg-blue-50" },
+                      { label: "AI Score", value: `${summary!.latestAiScore}`, color: "text-purple-600", bg: "bg-purple-50" },
+                      { label: "Assigned Tasks", value: summary!.totalAssigned, color: "text-amber-600", bg: "bg-amber-50" },
+                      { label: "Completed Tasks", value: summary!.totalCompleted, color: "text-emerald-600", bg: "bg-emerald-50" },
+                      { label: "Completion Rate", value: `${summary!.completionRate}%`, color: "text-indigo-600", bg: "bg-indigo-50" },
+                    ].map((s) => (
+                      <div key={s.label} className={cn("rounded-xl p-4 border border-slate-200", s.bg)}>
+                        <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-1">{s.label}</p>
+                        <p className={cn("text-2xl font-bold", s.color)}>{s.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* WhatsApp Status */}
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
+                    <p className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
+                      <Wifi className="h-4 w-4 text-[#00C853]" /> WhatsApp Account Health
+                    </p>
+                    {summary!.whatsAppHealth ? (
+                      <div className="flex items-center justify-between">
+                        <WhatsAppBadge status={summary!.whatsAppHealth} score={summary!.whatsAppHealthScore} />
+                        <div className="text-right">
+                          <p className="text-xs text-slate-600">Health Score</p>
+                          <p className={cn(
+                            "text-xl font-bold",
+                            (summary!.whatsAppHealthScore ?? 0) >= 80 ? "text-emerald-600" :
+                            (summary!.whatsAppHealthScore ?? 0) >= 50 ? "text-amber-600" : "text-red-600"
+                          )}>{summary!.whatsAppHealthScore ?? 0}/100</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">No WhatsApp account linked</p>
+                    )}
+                  </div>
+
+                  {/* Activity Chart */}
+                  {chartData.length > 0 && (
+                    <div>
+                      <p className="text-xs font-bold text-slate-700 mb-3">Daily Marketing Activity</p>
+                      <div className="h-40">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                            <defs>
+                              <linearGradient id="drawerGrad" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#00C853" stopOpacity={0.4} />
+                                <stop offset="100%" stopColor="#00C853" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="2 6" stroke="rgba(0,0,0,0.07)" vertical={false} />
+                            <XAxis
+                              dataKey="date"
+                              fontSize={8}
+                              stroke="rgba(0,0,0,0.4)"
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(v) => new Date(v).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                            />
+                            <YAxis fontSize={8} stroke="rgba(0,0,0,0.4)" tickLine={false} axisLine={false} />
+                            <Tooltip
+                              contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "11px" }}
+                              labelFormatter={(v) => new Date(v).toLocaleDateString()}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="messageCount"
+                              name="Messages"
+                              stroke="#00C853"
+                              strokeWidth={2}
+                              fill="url(#drawerGrad)"
+                              dot={false}
+                              activeDot={{ r: 3, fill: "#00C853", stroke: "#fff", strokeWidth: 2 }}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── Tasks ── */}
+              {activeSection === "tasks" && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-slate-800">Assigned Tasks ({user!.assignedTasks.length})</p>
+                    <div className="flex gap-2 text-xs">
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-semibold">{summary!.totalCompleted} done</span>
+                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">{summary!.totalPending} pending</span>
+                    </div>
+                  </div>
+                  {user!.assignedTasks.length === 0 && (
+                    <p className="text-sm text-slate-400 text-center py-8">No tasks assigned</p>
+                  )}
+                  {user!.assignedTasks.map((task) => (
+                    <div key={task.id} className="border border-slate-200 rounded-xl p-3 hover:border-[#00C853] hover:shadow-sm transition-all">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-slate-800">{task.title}</p>
+                          {task.category && <p className="text-[10px] text-slate-500 mt-0.5">{task.category}</p>}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge className={cn(
+                            "text-[9px] font-semibold",
+                            task.status === "COMPLETED" && "bg-emerald-100 text-emerald-700",
+                            task.status === "IN_PROGRESS" && "bg-blue-100 text-blue-700",
+                            task.status === "TODO" && "bg-slate-100 text-slate-600",
+                            task.status === "BLOCKED" && "bg-red-100 text-red-700",
+                          )}>{task.status.replace("_", " ")}</Badge>
+                          <Badge className={cn(
+                            "text-[9px] font-semibold",
+                            task.priority === "URGENT" && "bg-red-100 text-red-700",
+                            task.priority === "HIGH" && "bg-orange-100 text-orange-700",
+                            task.priority === "MEDIUM" && "bg-amber-100 text-amber-700",
+                            task.priority === "LOW" && "bg-slate-100 text-slate-600",
+                          )}>{task.priority}</Badge>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-500">
+                        {task.dueDate && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Due: {new Date(task.dueDate).toLocaleDateString()}
+                          </span>
+                        )}
+                        {task.completedAt && (
+                          <span className="flex items-center gap-1 text-emerald-600">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Done: {new Date(task.completedAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── AI Progress ── */}
+              {activeSection === "ai-progress" && (
+                <div className="space-y-3">
+                  <p className="text-sm font-bold text-slate-800">AI Score History</p>
+                  {user!.aiProgress.length === 0 && (
+                    <p className="text-sm text-slate-400 text-center py-8">No AI score data available</p>
+                  )}
+                  {user!.aiProgress.length > 0 && (
+                    <div className="h-40 mb-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={user!.aiProgress.slice().reverse()} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="2 6" stroke="rgba(0,0,0,0.07)" vertical={false} />
+                          <XAxis dataKey="period" fontSize={8} tickLine={false} axisLine={false} />
+                          <YAxis domain={[0, 100]} fontSize={8} tickLine={false} axisLine={false} />
+                          <Tooltip contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "11px" }} />
+                          <Line type="monotone" dataKey="aiScore" name="AI Score" stroke="#8b5cf6" strokeWidth={2.5} dot={{ fill: "#8b5cf6", strokeWidth: 2, r: 4 }} />
+                          <Line type="monotone" dataKey="productivityScore" name="Productivity" stroke="#00C853" strokeWidth={2} dot={{ fill: "#00C853", strokeWidth: 2, r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  {user!.aiProgress.map((p) => (
+                    <div key={p.id} className="border border-slate-200 rounded-xl p-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-700">{p.period}</p>
+                        <p className="text-[10px] text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-center">
+                          <p className="text-[10px] text-purple-600 font-semibold">AI Score</p>
+                          <p className="text-base font-bold text-purple-700">{p.aiScore.toFixed(1)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] text-emerald-600 font-semibold">Productivity</p>
+                          <p className="text-base font-bold text-emerald-700">{p.productivityScore.toFixed(1)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Activity Log ── */}
+              {activeSection === "activity" && (
+                <div className="space-y-2">
+                  <p className="text-sm font-bold text-slate-800">Recent Audit Activity ({user!.auditLogs.length})</p>
+                  {user!.auditLogs.length === 0 && (
+                    <p className="text-sm text-slate-400 text-center py-8">No audit activity found</p>
+                  )}
+                  {user!.auditLogs.map((log) => (
+                    <div key={log.id} className="border border-slate-100 rounded-lg px-3 py-2 flex items-center justify-between hover:border-slate-300 transition-all">
+                      <div>
+                        <Badge className={cn(
+                          "text-[9px] font-semibold mb-0.5",
+                          log.action.includes("create") && "bg-emerald-100 text-emerald-700",
+                          log.action.includes("update") && "bg-blue-100 text-blue-700",
+                          log.action.includes("delete") && "bg-red-100 text-red-700",
+                          log.action.includes("login") && "bg-teal-100 text-teal-700",
+                          !log.action.includes("create") && !log.action.includes("update") && !log.action.includes("delete") && !log.action.includes("login") && "bg-slate-100 text-slate-700",
+                        )}>{log.action}</Badge>
+                        <p className="text-[10px] text-slate-500">{log.entity}</p>
+                      </div>
+                      <p className="text-[10px] text-slate-400">{new Date(log.createdAt).toLocaleString()}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Remarks ── */}
+              {activeSection === "remarks" && (
+                <div className="space-y-3">
+                  <p className="text-sm font-bold text-slate-800">Admin Remarks ({user!.receivedRemarks.length})</p>
+                  {user!.receivedRemarks.length === 0 && (
+                    <p className="text-sm text-slate-400 text-center py-8">No remarks found</p>
+                  )}
+                  {user!.receivedRemarks.map((r) => (
+                    <div key={r.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                      <p className="text-xs text-slate-700 leading-relaxed mb-2">{r.content}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-500">
+                          By {r.createdBy.fullName} ({r.createdBy.role})
+                        </span>
+                        <span className="text-[10px] text-slate-400">{new Date(r.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Users Tab Component ───────────────────────────────────────────────
+type SortField = "fullName" | "teamName" | "role" | "todayMarketingCount" | "monthlyMarketingCount" | "assignedTasks" | "completedTasks" | "pendingTasks" | "aiScore" | "createdAt";
+
+function UsersReportTab() {
+  const [rows, setRows] = useState<UserReportRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [teams, setTeams] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+  const [teamFilter, setTeamFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [waFilter, setWaFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<SortField>("fullName");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
+  const fetchRows = useCallback(async () => {
+    setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (selectedUserId !== "all") params.append("userId", selectedUserId);
-      if (dateRange !== "all") params.append("dateRange", dateRange);
-
-      const response = await fetch(`/api/admin/activities?${params.toString()}`);
-      if (response.ok) {
-        const data = await response.json();
-        setUserActivities(data);
+      const params = new URLSearchParams({
+        search,
+        team: teamFilter,
+        role: roleFilter,
+        whatsAppStatus: waFilter,
+        sortBy,
+        sortDir,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      const res = await fetch(`/api/admin/reports/users?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRows(data.rows ?? []);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
+        setTeams(data.teams ?? []);
       }
-    } catch (error) {
-      console.error("Error fetching user activities:", error);
+    } catch (e) {
+      console.error(e);
     } finally {
-      setLoadingActivities(false);
+      setLoading(false);
+    }
+  }, [search, teamFilter, roleFilter, waFilter, sortBy, sortDir, page, pageSize]);
+
+  useEffect(() => {
+    fetchRows();
+  }, [fetchRows]);
+
+  // Reset page on filter/search change
+  useEffect(() => { setPage(1); }, [search, teamFilter, roleFilter, waFilter, sortBy]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortDir("asc");
     }
   };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortBy !== field) return <ChevronDown className="h-3 w-3 text-slate-300" />;
+    return sortDir === "asc"
+      ? <ChevronUp className="h-3 w-3 text-[#00C853]" />
+      : <ChevronDown className="h-3 w-3 text-[#00C853]" />;
+  };
+
+  // Client-side sort for computed fields not sortable via DB
+  const sortedRows = useMemo(() => {
+    const serverSorted = ["fullName", "teamName", "role", "createdAt"];
+    if (serverSorted.includes(sortBy)) return rows;
+    return [...rows].sort((a, b) => {
+      const av = a[sortBy as keyof UserReportRow] as number;
+      const bv = b[sortBy as keyof UserReportRow] as number;
+      return sortDir === "asc" ? av - bv : bv - av;
+    });
+  }, [rows, sortBy, sortDir]);
+
+  const downloadCSV = () => {
+    const header = ["User ID", "Name", "Email", "Role", "Team", "Status", "Today Marketing", "Monthly Marketing", "Assigned Tasks", "Completed Tasks", "Pending Tasks", "AI Score", "WhatsApp Status", "WA Health Score"];
+    const csvRows = sortedRows.map((r) => [
+      r.id, r.fullName, r.email, r.role, r.teamName, r.status,
+      r.todayMarketingCount, r.monthlyMarketingCount,
+      r.assignedTasks, r.completedTasks, r.pendingTasks,
+      r.aiScore, r.whatsAppStatus ?? "—", r.whatsAppHealthScore ?? "—",
+    ]);
+    const csv = [header, ...csvRows].map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `users-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const columns: { key: SortField | null; label: string; sortable?: boolean }[] = [
+    { key: null, label: "#" },
+    { key: "fullName", label: "User", sortable: true },
+    { key: "teamName", label: "Team", sortable: true },
+    { key: "role", label: "Role", sortable: true },
+    { key: "todayMarketingCount", label: "Today", sortable: true },
+    { key: "monthlyMarketingCount", label: "Monthly", sortable: true },
+    { key: "assignedTasks", label: "Assigned", sortable: true },
+    { key: "completedTasks", label: "Done", sortable: true },
+    { key: "pendingTasks", label: "Pending", sortable: true },
+    { key: null, label: "WhatsApp" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Controls */}
+      <Card className="border border-slate-200 shadow-sm bg-white">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            {/* Search */}
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by name, email, team…"
+                className="h-8 pl-8 text-xs"
+              />
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
+                className="h-8 px-3 text-xs border border-slate-200 rounded-md bg-white focus:border-[#00C853] focus:ring-1 focus:ring-[#00C853] outline-none"
+              >
+                <option value="all">All Teams</option>
+                {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="h-8 px-3 text-xs border border-slate-200 rounded-md bg-white focus:border-[#00C853] focus:ring-1 focus:ring-[#00C853] outline-none"
+              >
+                <option value="all">All Roles</option>
+                <option value="ADMIN">Admin</option>
+                <option value="USER">User</option>
+              </select>
+              <select
+                value={waFilter}
+                onChange={(e) => setWaFilter(e.target.value)}
+                className="h-8 px-3 text-xs border border-slate-200 rounded-md bg-white focus:border-[#00C853] focus:ring-1 focus:ring-[#00C853] outline-none"
+              >
+                <option value="all">All WA Status</option>
+                <option value="ACTIVE">Active</option>
+                <option value="WARNING">Warning</option>
+                <option value="LIMITED">Limited</option>
+                <option value="BANNED">Banned</option>
+              </select>
+              <Button size="sm" variant="secondary" onClick={fetchRows} className="h-8 text-xs">
+                <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+              </Button>
+              <Button size="sm" onClick={downloadCSV} className="h-8 text-xs bg-[#00C853] hover:bg-[#00C853]/90">
+                <Download className="h-3 w-3 mr-1" /> Export CSV
+              </Button>
+            </div>
+          </div>
+
+          {/* Results count */}
+          <p className="text-[10px] text-slate-500 mt-2">
+            Showing {rows.length} of {total} users · Page {page} of {totalPages}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Table */}
+      <Card className="border border-slate-200 shadow-sm bg-white overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
+                {columns.map((col) => (
+                  <th
+                    key={col.label}
+                    onClick={() => col.sortable && col.key && toggleSort(col.key as SortField)}
+                    className={cn(
+                      "px-3 py-3 text-left font-semibold text-slate-600 whitespace-nowrap select-none",
+                      col.sortable && "cursor-pointer hover:text-[#00C853] hover:bg-slate-200/50 transition-colors"
+                    )}
+                  >
+                    <span className="flex items-center gap-1">
+                      {col.label}
+                      {col.sortable && col.key && <SortIcon field={col.key as SortField} />}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr>
+                  <td colSpan={columns.length} className="text-center py-12">
+                    <Loader2 className="h-6 w-6 text-[#00C853] animate-spin mx-auto mb-2" />
+                    <p className="text-slate-400 text-xs">Loading users…</p>
+                  </td>
+                </tr>
+              )}
+              {!loading && sortedRows.length === 0 && (
+                <tr>
+                  <td colSpan={columns.length} className="text-center py-12">
+                    <User className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-slate-400 text-xs">No users found matching your filters</p>
+                  </td>
+                </tr>
+              )}
+              {!loading && sortedRows.map((row, idx) => (
+                <tr
+                  key={row.id}
+                  onClick={() => setSelectedUserId(row.id)}
+                  className="border-b border-slate-100 hover:bg-[#00C853]/5 cursor-pointer transition-colors group"
+                >
+                  {/* Index */}
+                  <td className="px-3 py-3 text-slate-400 font-mono">
+                    {(page - 1) * pageSize + idx + 1}
+                  </td>
+
+                  {/* User */}
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00C853] to-emerald-600 flex items-center justify-center text-white font-bold text-[10px] shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
+                        {row.fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-800 group-hover:text-[#00C853] transition-colors">{row.fullName}</p>
+                        <p className="text-[10px] text-slate-400 font-mono">{row.id.slice(0, 8)}…</p>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Team */}
+                  <td className="px-3 py-3">
+                    <span className="text-slate-600">{row.teamName}</span>
+                  </td>
+
+                  {/* Role */}
+                  <td className="px-3 py-3">
+                    <Badge className={cn(
+                      "text-[9px] font-semibold",
+                      row.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                    )}>{row.role}</Badge>
+                  </td>
+
+                  {/* Today Marketing */}
+                  <td className="px-3 py-3">
+                    <span className={cn(
+                      "font-bold",
+                      row.todayMarketingCount > 50 ? "text-emerald-600" :
+                      row.todayMarketingCount > 0 ? "text-blue-600" : "text-slate-400"
+                    )}>{row.todayMarketingCount}</span>
+                  </td>
+
+                  {/* Monthly Marketing */}
+                  <td className="px-3 py-3">
+                    <span className="font-semibold text-slate-700">{row.monthlyMarketingCount.toLocaleString()}</span>
+                  </td>
+
+                  {/* Assigned */}
+                  <td className="px-3 py-3">
+                    <span className="font-semibold text-amber-600">{row.assignedTasks}</span>
+                  </td>
+
+                  {/* Completed */}
+                  <td className="px-3 py-3">
+                    <span className="font-semibold text-emerald-600">{row.completedTasks}</span>
+                  </td>
+
+                  {/* Pending */}
+                  <td className="px-3 py-3">
+                    <span className={cn(
+                      "font-semibold",
+                      row.pendingTasks > 5 ? "text-red-600" : row.pendingTasks > 0 ? "text-orange-600" : "text-slate-400"
+                    )}>{row.pendingTasks}</span>
+                  </td>
+
+
+
+                  {/* WhatsApp */}
+                  <td className="px-3 py-3">
+                    <WhatsAppBadge status={row.whatsAppStatus} score={row.whatsAppHealthScore} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50">
+            <p className="text-[10px] text-slate-500">
+              {total} total users
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="h-7 w-7 p-0"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </Button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pg = i + 1;
+                return (
+                  <Button
+                    key={pg}
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setPage(pg)}
+                    className={cn(
+                      "h-7 w-7 p-0 text-xs",
+                      page === pg && "bg-[#00C853] hover:bg-[#00C853]/90 text-white"
+                    )}
+                  >
+                    {pg}
+                  </Button>
+                );
+              })}
+              {totalPages > 5 && <span className="text-xs text-slate-400">…</span>}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="h-7 w-7 p-0"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* User Detail Drawer */}
+      {selectedUserId && (
+        <UserDetailDrawer userId={selectedUserId} onClose={() => setSelectedUserId(null)} />
+      )}
+    </div>
+  );
+}
+
+export function AdminReports() {
+  const [selectedTab, setSelectedTab] = useState("users");
 
   // Calculate totals and metrics
   const totalMetrics = useMemo(() => {
@@ -903,15 +1717,6 @@ export function AdminReports() {
       avgConversionRate: campaignReports.reduce((sum, c) => sum + c.conversionRate, 0) / campaignReports.length
     };
   }, []);
-  // Filtered data
-  const filteredCampaigns = useMemo(() => {
-    return campaignReports.filter(campaign => {
-      const matchesSearch = campaign.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesChannel = channelFilter === "all" || campaign.channel === channelFilter;
-      const matchesStatus = statusFilter === "all" || campaign.status === statusFilter;
-      return matchesSearch && matchesChannel && matchesStatus;
-    });
-  }, [searchQuery, channelFilter, statusFilter]);
 
   const handleExport = (format: "PDF" | "Excel") => {
     // Export functionality
@@ -1022,13 +1827,29 @@ export function AdminReports() {
       </div>
 
       {/* Tabs Navigation */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-3">
-        <TabsList className="grid w-full grid-cols-5 bg-slate-100 rounded-lg p-1">
-          <TabsTrigger value="overview" className="text-[10px] font-semibold">Overview</TabsTrigger>
-          <TabsTrigger value="campaigns" className="text-[10px] font-semibold">Campaigns</TabsTrigger>
-          <TabsTrigger value="channels" className="text-[10px] font-semibold">Channels</TabsTrigger>
-          <TabsTrigger value="activities" className="text-[10px] font-semibold">User Activities</TabsTrigger>
-          <TabsTrigger value="team" className="text-[10px] font-semibold">Team</TabsTrigger>
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 bg-slate-100/90 border border-slate-200/50 p-1 rounded-xl shadow-sm">
+          <TabsTrigger
+            value="users"
+            className="flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all duration-200 data-[state=active]:bg-[#00C853] data-[state=active]:text-white data-[state=active]:shadow-md text-slate-600 hover:text-slate-900 data-[state=active]:hover:text-white"
+          >
+            <User className="h-3.5 w-3.5" />
+            Users
+          </TabsTrigger>
+          <TabsTrigger
+            value="team"
+            className="flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all duration-200 data-[state=active]:bg-[#00C853] data-[state=active]:text-white data-[state=active]:shadow-md text-slate-600 hover:text-slate-900 data-[state=active]:hover:text-white"
+          >
+            <Users className="h-3.5 w-3.5" />
+            Team
+          </TabsTrigger>
+          <TabsTrigger
+            value="overview"
+            className="flex items-center justify-center gap-2 py-2 text-xs font-bold rounded-lg transition-all duration-200 data-[state=active]:bg-[#00C853] data-[state=active]:text-white data-[state=active]:shadow-md text-slate-600 hover:text-slate-900 data-[state=active]:hover:text-white"
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            Overview
+          </TabsTrigger>
         </TabsList>
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-3">
@@ -1224,410 +2045,6 @@ export function AdminReports() {
             </Card>
           </div>
         </TabsContent>
-        {/* Campaigns Tab */}
-        <TabsContent value="campaigns" className="space-y-5">
-          {/* Filters */}
-          <Card className="border border-slate-200/60 shadow-sm bg-white">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-black" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search campaigns..."
-                    className="h-8 pl-8 text-xs"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={channelFilter}
-                    onChange={(e) => setChannelFilter(e.target.value)}
-                    className="h-8 px-3 text-xs border rounded-md bg-white"
-                  >
-                    <option value="all">All Channels</option>
-                    <option value="WhatsApp">WhatsApp</option>
-                    <option value="Email">Email</option>
-                    <option value="SMS">SMS</option>
-                  </select>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="h-8 px-3 text-xs border rounded-md bg-white"
-                  >
-                    <option value="all">All Status</option>
-                    <option value="Active">Active</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Paused">Paused</option>
-                    <option value="Draft">Draft</option>
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Campaign Details */}
-          <div className="space-y-4">
-            {filteredCampaigns.map((campaign) => (
-              <Card key={campaign.id} className="border border-slate-200/60 shadow-sm bg-white hover:shadow-md transition-all">
-                <CardContent className="p-5">
-                  <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                    {/* Campaign Info */}
-                    <div className="lg:col-span-1">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1">
-                          <h3 className="font-bold text-sm text-black mb-1">{campaign.name}</h3>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Badge className={cn(
-                              "text-[9px] font-semibold",
-                              campaign.channel === "WhatsApp" && "bg-green-100 text-green-700",
-                              campaign.channel === "Email" && "bg-blue-100 text-blue-700",
-                              campaign.channel === "SMS" && "bg-purple-100 text-purple-700"
-                            )}>
-                              {campaign.channel}
-                            </Badge>
-                            <Badge className={cn(
-                              "text-[9px] font-semibold",
-                              campaign.status === "Active" && "bg-emerald-100 text-emerald-700",
-                              campaign.status === "Completed" && "bg-slate-100 text-black",
-                              campaign.status === "Paused" && "bg-amber-100 text-amber-700",
-                              campaign.status === "Draft" && "bg-orange-100 text-orange-700"
-                            )}>
-                              {campaign.status}
-                            </Badge>
-                          </div>
-                          <p className="text-[10px] text-black">
-                            {campaign.startDate} {campaign.endDate && `- ${campaign.endDate}`}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Performance Metrics */}
-                    <div className="lg:col-span-2">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="text-center p-2 bg-slate-50 rounded-lg">
-                          <p className="text-lg font-bold text-black">{formatNumber(campaign.totalSent)}</p>
-                          <p className="text-[9px] text-black font-medium">Sent</p>
-                        </div>
-                        <div className="text-center p-2 bg-emerald-50 rounded-lg">
-                          <p className="text-lg font-bold text-emerald-600">{formatPercentage(campaign.deliveryRate)}</p>
-                          <p className="text-[9px] text-emerald-600 font-medium">Delivered</p>
-                        </div>
-                        <div className="text-center p-2 bg-blue-50 rounded-lg">
-                          <p className="text-lg font-bold text-blue-600">{formatPercentage(campaign.openRate)}</p>
-                          <p className="text-[9px] text-blue-600 font-medium">Opened</p>
-                        </div>
-                        <div className="text-center p-2 bg-purple-50 rounded-lg">
-                          <p className="text-lg font-bold text-purple-600">{formatPercentage(campaign.replyRate)}</p>
-                          <p className="text-[9px] text-purple-600 font-medium">Reply Rate</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Financial & ROI */}
-                    <div className="lg:col-span-1">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between p-2 bg-amber-50 rounded-lg">
-                          <span className="text-[10px] text-amber-700 font-medium">Budget</span>
-                          <span className="text-xs font-bold text-amber-700">{formatCurrency(campaign.budget)}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-2 bg-orange-50 rounded-lg">
-                          <span className="text-[10px] text-orange-700 font-medium">Spent</span>
-                          <span className="text-xs font-bold text-orange-700">{formatCurrency(campaign.spent)}</span>
-                        </div>
-                        <div className="flex items-center justify-between p-2 bg-indigo-50 rounded-lg">
-                          <span className="text-[10px] text-indigo-700 font-medium">ROI</span>
-                          <div className="flex items-center gap-1">
-                            {campaign.roi > 150 ? 
-                              <ArrowUpRight className="h-3 w-3 text-green-600" /> : 
-                              <ArrowDownRight className="h-3 w-3 text-red-600" />
-                            }
-                            <span className={cn(
-                              "text-xs font-bold",
-                              campaign.roi > 150 ? "text-green-600" : "text-red-600"
-                            )}>
-                              {campaign.roi}%
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                          <span className="text-[10px] text-black font-medium">Conversions</span>
-                          <span className="text-xs font-bold text-black">
-                            {formatNumber(campaign.converted)} ({formatPercentage(campaign.conversionRate)})
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-        {/* Channels Tab */}
-        <TabsContent value="channels" className="space-y-5">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
-            {/* Channel Performance Comparison Chart */}
-            <Card className="border border-slate-200/60 shadow-sm bg-white">
-              <CardHeader className="pb-3 pt-4 px-4 border-b border-slate-100">
-                <CardTitle className="text-sm font-bold text-black">Channel Performance Comparison</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={channelMetrics}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="channel" fontSize={10} />
-                      <YAxis fontSize={10} />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e2e8f0', 
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }} 
-                      />
-                      <Bar dataKey="avgDeliveryRate" fill="#00C853" name="Delivery Rate %" />
-                      <Bar dataKey="avgOpenRate" fill="#0ea5e9" name="Open Rate %" />
-                      <Bar dataKey="avgReplyRate" fill="#8b5cf6" name="Reply Rate %" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Channel Growth Trends */}
-            <Card className="border border-slate-200/60 shadow-sm bg-white">
-              <CardHeader className="pb-3 pt-4 px-4 border-b border-slate-100">
-                <CardTitle className="text-sm font-bold text-black">Monthly Growth Trends</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4">
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={channelMetrics}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis dataKey="channel" fontSize={10} />
-                      <YAxis fontSize={10} />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'white', 
-                          border: '1px solid #e2e8f0', 
-                          borderRadius: '8px',
-                          fontSize: '12px'
-                        }} 
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="monthlyGrowth" 
-                        stroke="#f59e0b" 
-                        strokeWidth={3}
-                        dot={{ fill: '#f59e0b', strokeWidth: 2, r: 4 }}
-                        name="Growth %"
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {channelMetrics.map((channel) => (
-              <Card key={channel.channel} className="border border-slate-200/60 shadow-sm bg-white hover:shadow-md transition-all">
-                <CardHeader className="pb-3 pt-4 px-4 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className={cn(
-                      "h-3 w-3 rounded-full",
-                      channel.channel === "WhatsApp" && "bg-green-500",
-                      channel.channel === "Email" && "bg-blue-500", 
-                      channel.channel === "SMS" && "bg-purple-500"
-                    )} />
-                    <CardTitle className="text-sm font-bold text-black">{channel.channel}</CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                  {/* Channel Overview */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="text-center p-3 bg-slate-50 rounded-lg">
-                      <p className="text-xl font-bold text-black">{channel.totalCampaigns}</p>
-                      <p className="text-[9px] text-black font-medium">Total Campaigns</p>
-                    </div>
-                    <div className="text-center p-3 bg-emerald-50 rounded-lg">
-                      <p className="text-xl font-bold text-emerald-600">{channel.activeCampaigns}</p>
-                      <p className="text-[9px] text-emerald-600 font-medium">Active Now</p>
-                    </div>
-                  </div>
-
-                  {/* Volume Metrics */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-bold text-black mb-2">Volume Metrics</h4>
-                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                      <span className="text-[10px] text-black font-medium">Messages Sent</span>
-                      <span className="text-xs font-bold text-black">{formatNumber(channel.totalSent)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                      <span className="text-[10px] text-black font-medium">Delivered</span>
-                      <span className="text-xs font-bold text-black">{formatNumber(channel.delivered)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                      <span className="text-[10px] text-black font-medium">Opened</span>
-                      <span className="text-xs font-bold text-black">{formatNumber(channel.opened)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
-                      <span className="text-[10px] text-black font-medium">Replies</span>
-                      <span className="text-xs font-bold text-black">{formatNumber(channel.replied)}</span>
-                    </div>
-                  </div>
-
-                  {/* Performance Rates */}
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-bold text-black mb-2">Performance Rates</h4>
-                    <div className="flex items-center justify-between p-2 bg-emerald-50 rounded">
-                      <span className="text-[10px] text-emerald-700 font-medium">Delivery Rate</span>
-                      <span className="text-xs font-bold text-emerald-700">{formatPercentage(channel.avgDeliveryRate)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-blue-50 rounded">
-                      <span className="text-[10px] text-blue-700 font-medium">Open Rate</span>
-                      <span className="text-xs font-bold text-blue-700">{formatPercentage(channel.avgOpenRate)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-purple-50 rounded">
-                      <span className="text-[10px] text-purple-700 font-medium">Reply Rate</span>
-                      <span className="text-xs font-bold text-purple-700">{formatPercentage(channel.avgReplyRate)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-2 bg-orange-50 rounded">
-                      <span className="text-[10px] text-orange-700 font-medium">Conversion Rate</span>
-                      <span className="text-xs font-bold text-orange-700">{formatPercentage(channel.avgConversionRate)}</span>
-                    </div>
-                  </div>
-
-                  {/* Growth Indicator */}
-                  <div className="p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-black font-medium">Monthly Growth</span>
-                      <div className="flex items-center gap-1">
-                        {channel.monthlyGrowth > 0 ? 
-                          <TrendingUp className="h-3 w-3 text-green-600" /> : 
-                          <TrendingDown className="h-3 w-3 text-red-600" />
-                        }
-                        <span className={cn(
-                          "text-xs font-bold",
-                          channel.monthlyGrowth > 0 ? "text-green-600" : "text-red-600"
-                        )}>
-                          {channel.monthlyGrowth > 0 ? "+" : ""}{formatPercentage(channel.monthlyGrowth)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* User Activities Tab - Harek User le gareko kaam */}
-        <TabsContent value="activities" className="space-y-5">
-          {/* Filters and Download */}
-          <Card className="border border-slate-200/60 shadow-sm bg-gradient-to-r from-white to-slate-50">
-            <CardContent className="p-4">
-              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search user activities..."
-                    className="h-9 pl-8 text-xs border-slate-300 focus:border-[#00C853] focus:ring-[#00C853]"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={dateRange}
-                    onChange={(e) => setDateRange(e.target.value)}
-                    className="h-9 px-3 text-xs border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors focus:border-[#00C853] focus:ring-1 focus:ring-[#00C853]"
-                  >
-                    <option value="today">Today</option>
-                    <option value="yesterday">Yesterday</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                    <option value="all">All Time</option>
-                  </select>
-                  <Button 
-                    onClick={() => {
-                      // Download user activities report
-                      const csvContent = generateUserActivitiesCSV(userActivities);
-                      const blob = new Blob([csvContent], { type: 'text/csv' });
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `user-activities-report-${new Date().toISOString().split('T')[0]}.csv`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      window.URL.revokeObjectURL(url);
-                    }} 
-                    size="sm" 
-                    variant="secondary"
-                    className="h-9 text-xs"
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Download CSV
-                  </Button>
-                  <Button 
-                    onClick={fetchUserActivities} 
-                    size="sm" 
-                    className="h-9 text-xs bg-[#00C853] hover:bg-[#00C853]/90"
-                  >
-                    <Search className="h-3 w-3 mr-1" />
-                    Refresh
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* User-Grouped Activities */}
-          {loadingActivities ? (
-            <div className="text-center py-8">
-              <Activity className="h-8 w-8 text-[#00C853] mx-auto mb-2 animate-spin" />
-              <p className="text-sm text-black">Loading user activities...</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {(() => {
-                // Group activities by user
-                const groupedActivities: Record<string, typeof userActivities> = {};
-                
-                userActivities
-                  .filter(activity => 
-                    activity.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    activity.actor?.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    activity.entity.toLowerCase().includes(searchQuery.toLowerCase())
-                  )
-                  .forEach(activity => {
-                    const key = activity.actorId || 'system';
-                    if (!groupedActivities[key]) {
-                      groupedActivities[key] = [];
-                    }
-                    groupedActivities[key].push(activity);
-                  });
-
-                return Object.entries(groupedActivities).map(([userId, activities]) => (
-                  <UserActivityGroup key={userId} userId={userId} activities={activities} />
-                ));
-              })()}
-
-              {userActivities.length === 0 && !loadingActivities && (
-                <Card className="border border-slate-200/60 shadow-sm">
-                  <CardContent className="p-8 text-center">
-                    <Activity className="h-12 w-12 text-black mx-auto mb-3" />
-                    <h3 className="text-sm font-bold text-black mb-1">No activities found</h3>
-                    <p className="text-xs text-black">No user activities recorded for the selected period</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-        </TabsContent>
 
         {/* Team Performance Tab */}
         <TabsContent value="team" className="space-y-5">
@@ -1741,6 +2158,20 @@ export function AdminReports() {
               </Card>
             ))}
           </div>
+        </TabsContent>
+
+        {/* ── Users Tab ── */}
+        <TabsContent value="users" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Users className="h-4 w-4 text-[#00C853]" />
+                User Performance Report
+              </h2>
+              <p className="text-[10px] text-slate-500 mt-0.5">Individual user data — click any row to view complete history</p>
+            </div>
+          </div>
+          <UsersReportTab />
         </TabsContent>
       </Tabs>
     </div>

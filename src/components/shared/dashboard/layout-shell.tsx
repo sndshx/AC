@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, LogOut, Menu, Search, Send, UserRound, X } from "lucide-react";
+import { Bell, LogOut, Menu, Search, UserRound, X, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -11,6 +11,8 @@ import { Logo } from "@/components/ui/logo";
 import { adminNav, userNav } from "@/lib/shared/demo-data";
 import { cn } from "@/lib/shared/utils";
 import { useAppStore } from "@/store/app-store";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 type AppShellProps = {
   role: "ADMIN" | "USER";
@@ -24,16 +26,91 @@ type SessionUser = {
   avatarUrl?: string | null;
 };
 
+type Notification = {
+  id: string;
+  type: "TASK" | "SYSTEM" | "ALERT";
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+  userId?: string;
+  userName?: string;
+  taskId?: string;
+};
+
+// Sample notifications data
+const sampleNotifications: Notification[] = [
+  {
+    id: "1",
+    type: "TASK",
+    title: "New Task Assigned",
+    message: "You have been assigned a new task: Complete Blog Post",
+    time: "5m ago",
+    read: false,
+    userName: "Sarah Johnson",
+    taskId: "task_1"
+  },
+  {
+    id: "2",
+    type: "TASK",
+    title: "Task Completed",
+    message: "Web development task has been completed",
+    time: "1h ago",
+    read: false,
+    userName: "Mike Chen",
+    taskId: "task_2"
+  },
+  {
+    id: "3",
+    type: "SYSTEM",
+    title: "System Update",
+    message: "Campaign performance metrics updated",
+    time: "2h ago",
+    read: true
+  },
+  {
+    id: "4",
+    type: "TASK",
+    title: "Task Due Soon",
+    message: "Marketing Campaign Review is due today",
+    time: "3h ago",
+    read: true,
+    taskId: "task_3"
+  },
+  {
+    id: "5",
+    type: "ALERT",
+    title: "WhatsApp Warning",
+    message: "Account health score dropped below 75%",
+    time: "5h ago",
+    read: true
+  },
+  {
+    id: "6",
+    type: "TASK",
+    title: "New Comment",
+    message: "Alex Kumar commented on your task",
+    time: "1d ago",
+    read: true,
+    userName: "Alex Kumar",
+    taskId: "task_4"
+  }
+];
+
 export function AppShell({ role, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>(sampleNotifications);
   const nav = role === "ADMIN" ? adminNav : userNav;
   const { sidebarOpen, setSidebarOpen, searchQuery, setSearchQuery } = useAppStore();
   const title = useMemo(() => {
     const active = nav.find((item) => pathname.startsWith(item.href));
     return active?.label ?? "Dashboard";
   }, [nav, pathname]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -42,10 +119,67 @@ export function AppShell({ role, children }: AppShellProps) {
       .catch(() => setUser(null));
   }, []);
 
+  // Close notifications panel when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (notificationsOpen && !target.closest('[data-notifications-panel]')) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    if (notificationsOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [notificationsOpen]);
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.replace("/login");
   }
+
+  const handleNotificationClick = (notification: Notification) => {
+    // Mark as read
+    setNotifications(prev => 
+      prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
+    );
+
+    // Navigate based on notification type
+    if (notification.type === "TASK") {
+      setNotificationsOpen(false);
+      router.push(role === "ADMIN" ? "/admin/tasks" : "/user/tasks");
+    }
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const getNotificationIcon = (type: Notification["type"]) => {
+    switch (type) {
+      case "TASK":
+        return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />;
+      case "ALERT":
+        return <AlertCircle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />;
+      default:
+        return <Bell className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />;
+    }
+  };
+
+  const getNotificationBg = (type: Notification["type"]) => {
+    switch (type) {
+      case "TASK":
+        return "bg-emerald-50 dark:bg-emerald-900/20";
+      case "ALERT":
+        return "bg-red-50 dark:bg-red-900/20";
+      default:
+        return "bg-blue-50 dark:bg-blue-900/20";
+    }
+  };
 
   const sidebar = (
     <aside className="flex h-full flex-col bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-xl">
@@ -165,16 +299,117 @@ export function AppShell({ role, children }: AppShellProps) {
                 />
               </div>
             </div>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              aria-label="Notifications" 
-              title="Notifications"
-              className="relative hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
-            </Button>
+            {/* Notifications Dropdown */}
+            <div className="relative" data-notifications-panel>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                aria-label="Notifications" 
+                title="Notifications"
+                className="relative hover:bg-slate-100 dark:hover:bg-slate-800"
+                onClick={() => setNotificationsOpen(!notificationsOpen)}
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-900" />
+                )}
+              </Button>
+
+              {/* Notifications Panel */}
+              {notificationsOpen && (
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-2xl overflow-hidden animate-in slide-in-from-top-2 duration-200 z-50">
+                  {/* Header */}
+                  <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-white dark:from-slate-800 dark:to-slate-900">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Notifications</h3>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {unreadCount > 0 ? `${unreadCount} unread notifications` : 'All caught up!'}
+                        </p>
+                      </div>
+                      {unreadCount > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-[9px] px-2 text-[#00C853] hover:text-[#143D2C] hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                          onClick={markAllAsRead}
+                        >
+                          Mark all read
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Notifications List */}
+                  <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+                    {notifications.length === 0 ? (
+                      <div className="p-8 text-center">
+                        <Bell className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                        <p className="text-xs text-slate-500 dark:text-slate-400">No notifications</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {notifications.map((notification) => (
+                          <button
+                            key={notification.id}
+                            onClick={() => handleNotificationClick(notification)}
+                            className={cn(
+                              "w-full p-3 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50",
+                              !notification.read && "bg-emerald-50/30 dark:bg-emerald-900/10"
+                            )}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div className={cn("h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5", getNotificationBg(notification.type))}>
+                                {getNotificationIcon(notification.type)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <p className="text-[11px] font-bold text-slate-900 dark:text-white">
+                                    {notification.title}
+                                  </p>
+                                  {!notification.read && (
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 flex-shrink-0 mt-1" />
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-600 dark:text-slate-400 mb-1.5 line-clamp-2">
+                                  {notification.message}
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  {notification.userName && (
+                                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                                      {notification.userName}
+                                    </span>
+                                  )}
+                                  <span className="text-[9px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
+                                    <Clock className="h-2.5 w-2.5" />
+                                    {notification.time}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-2 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full h-7 text-[10px] text-[#143D2C] dark:text-[#00C853] hover:bg-emerald-50 dark:hover:bg-emerald-900/20 font-semibold"
+                      onClick={() => {
+                        setNotificationsOpen(false);
+                        router.push(role === "ADMIN" ? "/admin/tasks" : "/user/notifications");
+                      }}
+                    >
+                      View All Notifications
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
             <ThemeToggle />
             <Button 
               variant="ghost" 
