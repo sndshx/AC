@@ -6,11 +6,12 @@ const prisma = new PrismaClient();
 // GET - Get single team
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const team = await prisma.team.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         members: {
           include: {
@@ -67,14 +68,15 @@ export async function GET(
 // PATCH - Update team
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const body = await req.json();
     const { name, description, memberIds } = body;
 
     const team = await prisma.team.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         description,
@@ -123,11 +125,12 @@ export async function PATCH(
 // DELETE - Delete team
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     await prisma.team.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({

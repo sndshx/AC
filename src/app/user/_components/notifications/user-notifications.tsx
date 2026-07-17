@@ -177,9 +177,9 @@ export function UserNotifications() {
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case "high": return <Badge variant="destructive">High</Badge>;
-      case "medium": return <Badge variant="default">Medium</Badge>;
-      default: return <Badge variant="secondary">Low</Badge>;
+      case "high": return <Badge tone="danger">High</Badge>;
+      case "medium": return <Badge tone="warning">Medium</Badge>;
+      default: return <Badge tone="default">Low</Badge>;
     }
   };
 

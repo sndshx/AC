@@ -23,7 +23,7 @@ export async function GET(
             createdBy: { select: { fullName: true } }
           }
         },
-        whatsAppStatus: true,
+        whatsAppAccounts: true,
         notifications: {
           where: { readAt: null },
           orderBy: { createdAt: 'desc' },

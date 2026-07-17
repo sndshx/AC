@@ -34,7 +34,7 @@ export async function findUserByEmail(email: string) {
     include: {
       activities: true,
       assignedTasks: true,
-      whatsAppStatus: true
+      whatsAppAccounts: true
     }
   })
 }
@@ -208,28 +208,21 @@ export async function markNotificationAsRead(id: string) {
 }
 
 // ===============================
-// WHATSAPP STATUS OPERATIONS
+// WHATSAPP ACCOUNT OPERATIONS
 // ===============================
 
-// WhatsApp Status Update गर्नुहोस्
-export async function updateWhatsAppStatus(userId: string, data: {
+// WhatsApp Account Update गर्नुहोस्
+export async function updateWhatsAppAccount(phoneNumber: string, data: {
   status?: 'ACTIVE' | 'WARNING' | 'LIMITED' | 'BANNED'
   healthScore?: number
   dailyMessages?: number
   monthlyMessages?: number
 }) {
-  return await prisma.whatsAppStatus.upsert({
-    where: { userId },
-    update: {
+  return await prisma.whatsAppAccount.update({
+    where: { phoneNumber },
+    data: {
       ...data,
       lastCheckedAt: new Date()
-    },
-    create: {
-      userId,
-      status: data.status || 'ACTIVE',
-      healthScore: data.healthScore || 100,
-      dailyMessages: data.dailyMessages || 0,
-      monthlyMessages: data.monthlyMessages || 0
     }
   })
 }

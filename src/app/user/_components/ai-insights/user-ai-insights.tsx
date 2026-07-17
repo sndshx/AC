@@ -367,7 +367,7 @@ export function UserAIInsights() {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
                           <h3 className="font-semibold text-slate-900 dark:text-white">{rec.title}</h3>
-                          <Badge variant={rec.priority === "High" ? "destructive" : rec.priority === "Medium" ? "default" : "secondary"}>
+                          <Badge variant={rec.priority === "High" ? "danger" : rec.priority === "Medium" ? "default" : "secondary"}>
                             {rec.priority}
                           </Badge>
                         </div>

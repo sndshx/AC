@@ -319,7 +319,7 @@ export function UserSettings() {
               <Separator />
 
               <Button 
-                variant="destructive" 
+                variant="danger" 
                 className="w-full"
                 onClick={handleLogout}
               >

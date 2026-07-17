@@ -118,7 +118,6 @@ export const adminNav = [
   { href: "/admin/activity-logs", label: "Activity Logs", icon: Activity },
   { href: "/admin/activity-logs/all-dates", label: "All Dates History", icon: CalendarDays },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/admin/marketing", label: "Marketing", icon: Bot },
   { href: "/admin/tasks", label: "Tasks", icon: CheckCircle2 },
   { href: "/admin/reports", label: "Reports", icon: FileBarChart },
   { href: "/admin/settings", label: "Settings", icon: Settings }
@@ -127,7 +126,6 @@ export const adminNav = [
 export const userNav = [
   { href: "/user/dashboard", label: "Dashboard", icon: BarChart3 },
   { href: "/user/activity-log", label: "Activity Log", icon: Activity },
-  { href: "/user/marketing", label: "Marketing", icon: Bot },
   { href: "/user/tasks", label: "Tasks", icon: CheckCircle2 },
   { href: "/user/reports", label: "Reports", icon: FileBarChart },
   { href: "/user/notifications", label: "Notifications", icon: Bell },
@@ -162,7 +160,9 @@ export const demoUsers = [
     status: "ACTIVE",
     teamName: "Growth Command",
     aiScore: 96,
-    whatsAppStatus: { status: "ACTIVE", healthScore: 98 }
+    whatsAppAccounts: [
+      { id: "wa_1", phoneNumber: "9876543211", label: "Primary Account", status: "ACTIVE", healthScore: 98, dailyMessages: 120, monthlyMessages: 2400 }
+    ]
   },
   {
     id: "usr_2",
@@ -172,7 +172,9 @@ export const demoUsers = [
     status: "ACTIVE",
     teamName: "Outbound AI",
     aiScore: 91,
-    whatsAppStatus: { status: "ACTIVE", healthScore: 94 }
+    whatsAppAccounts: [
+      { id: "wa_2", phoneNumber: "9876543212", label: "Main Office", status: "ACTIVE", healthScore: 94, dailyMessages: 148, monthlyMessages: 3180 }
+    ]
   },
   {
     id: "usr_3",
@@ -182,7 +184,9 @@ export const demoUsers = [
     status: "ACTIVE",
     teamName: "Retention",
     aiScore: 84,
-    whatsAppStatus: { status: "WARNING", healthScore: 72 }
+    whatsAppAccounts: [
+      { id: "wa_3", phoneNumber: "9876543213", label: "Retention Line 1", status: "WARNING", healthScore: 72, dailyMessages: 45, monthlyMessages: 980 }
+    ]
   },
   {
     id: "usr_4",
@@ -192,7 +196,9 @@ export const demoUsers = [
     status: "DISABLED",
     teamName: "Agency Pods",
     aiScore: 67,
-    whatsAppStatus: { status: "LIMITED", healthScore: 58 }
+    whatsAppAccounts: [
+      { id: "wa_4", phoneNumber: "9876543214", label: "Support Line", status: "LIMITED", healthScore: 58, dailyMessages: 10, monthlyMessages: 200 }
+    ]
   }
 ];
 

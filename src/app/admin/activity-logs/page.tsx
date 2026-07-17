@@ -45,10 +45,22 @@ interface ActivityLogWithUser {
   remarks: string | null;
   updatedAt: string;
   date: string;
+  whatsAppAccount: {
+    id: string;
+    phoneNumber: string;
+    label: string | null;
+    status: string;
+  } | null;
   user: {
     id: string;
     fullName: string;
     email: string;
+    whatsAppAccounts: {
+      id: string;
+      phoneNumber: string;
+      label: string | null;
+      status: string;
+    }[];
   };
 }
 
@@ -56,6 +68,7 @@ interface UserActivitySummary {
   userId: string;
   userName: string;
   userEmail: string;
+  userWhatsAppAccounts: { id: string; phoneNumber: string; label: string | null; status: string }[];
   logs: ActivityLogWithUser[];
   totalMessages: number;
   averageMessages: number;
@@ -182,6 +195,7 @@ export default function AdminActivityLogsPage() {
         userId: log.user.id,
         userName: log.user.fullName,
         userEmail: log.user.email,
+        userWhatsAppAccounts: log.user.whatsAppAccounts ?? [],
         logs: [log],
         totalMessages: log.messageCount,
         averageMessages: 0,
@@ -411,6 +425,34 @@ export default function AdminActivityLogsPage() {
                           <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
                             {summary.userEmail}
                           </p>
+                          {summary.userWhatsAppAccounts.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {summary.userWhatsAppAccounts.map((wa) => {
+                                const isBanned = wa.status === "BANNED";
+                                const isWarning = wa.status === "WARNING";
+                                const tagStyle = isBanned
+                                  ? "bg-red-50 text-red-800 border border-red-200 border-l-2 border-l-red-500 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800 dark:border-l-red-500"
+                                  : isWarning
+                                  ? "bg-amber-50 text-amber-800 border border-amber-200 border-l-2 border-l-amber-500 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800 dark:border-l-amber-500"
+                                  : "bg-slate-50 text-slate-700 border border-slate-200 border-l-2 border-l-emerald-500 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700 dark:border-l-emerald-500";
+                                const dotColor = isBanned ? "bg-red-500" : isWarning ? "bg-amber-500" : "bg-emerald-500";
+                                return (
+                                  <span
+                                    key={wa.id}
+                                    className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-1 rounded-md ${tagStyle}`}
+                                  >
+                                    <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
+                                    {wa.label ? `${wa.label} · ${wa.phoneNumber}` : wa.phoneNumber}
+                                    {isBanned && (
+                                      <span className="ml-0.5 bg-red-600 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">
+                                        Banned
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -447,13 +489,38 @@ export default function AdminActivityLogsPage() {
                             className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"
                           >
                             <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <Badge className="bg-[#00C853] hover:bg-[#00a845] text-white text-xs px-2 py-1">
                                   {log.messageCount} messages
                                 </Badge>
                                 <span className="text-xs text-slate-500 dark:text-slate-400">
                                   logged on {formatDate(log.date)}
                                 </span>
+                                {log.whatsAppAccount && (
+                                  <span
+                                    className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-1 rounded-md border ${
+                                      log.whatsAppAccount.status === "ACTIVE"
+                                        ? "bg-slate-50 text-slate-700 border-slate-200 border-l-2 border-l-emerald-500 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700"
+                                        : log.whatsAppAccount.status === "WARNING"
+                                        ? "bg-amber-50 text-amber-800 border-amber-200 border-l-2 border-l-amber-500 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800"
+                                        : "bg-red-50 text-red-800 border-red-200 border-l-2 border-l-red-500 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
+                                    }`}
+                                  >
+                                    <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
+                                      log.whatsAppAccount.status === "ACTIVE" ? "bg-emerald-500"
+                                        : log.whatsAppAccount.status === "WARNING" ? "bg-amber-500"
+                                        : "bg-red-500"
+                                    }`} />
+                                    {log.whatsAppAccount.label
+                                      ? `${log.whatsAppAccount.label} · ${log.whatsAppAccount.phoneNumber}`
+                                      : log.whatsAppAccount.phoneNumber}
+                                    {log.whatsAppAccount.status === "BANNED" && (
+                                      <span className="ml-0.5 bg-red-600 text-white text-[8px] font-bold px-1 py-0.5 rounded leading-none">
+                                        Banned
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
                               </div>
                               <span className="text-xs text-slate-400 dark:text-slate-500">
                                 {formatTime(log.updatedAt)}

@@ -3,15 +3,14 @@ import { prisma } from "@/lib/shared/db";
 import { createAuditLog, requireAdmin } from "@/lib/shared/auth";
 import { updateUserSchema } from "@/lib/shared/validators";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
-
-export async function GET(request: NextRequest, context: RouteContext) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { error } = await requireAdmin(request);
   if (error) return error;
 
-  const { id } = await context.params;
+  const { id } = await params;
   const user = await prisma.user.findUnique({
     where: { id },
     include: {
@@ -20,7 +19,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       calendarEvents: { orderBy: { startAt: "asc" }, take: 20 },
       receivedRemarks: { orderBy: { createdAt: "desc" }, take: 20 },
       aiProgress: { orderBy: { createdAt: "desc" }, take: 10 },
-      whatsAppStatus: true,
+      whatsAppAccounts: true,
       notifications: { orderBy: { createdAt: "desc" }, take: 20 }
     }
   });
@@ -34,11 +33,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
   return NextResponse.json({ user: safeUser });
 }
 
-export async function PATCH(request: NextRequest, context: RouteContext) {
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { session, error } = await requireAdmin(request);
   if (error || !session) return error;
 
-  const { id } = await context.params;
+  const { id } = await params;
   const parsed = updateUserSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsed.success) {
@@ -70,11 +72,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   return NextResponse.json({ user });
 }
 
-export async function DELETE(request: NextRequest, context: RouteContext) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   const { session, error } = await requireAdmin(request);
   if (error || !session) return error;
 
-  const { id } = await context.params;
+  const { id } = await params;
   if (id === session.id) {
     return NextResponse.json({ error: "Admins cannot delete their own account." }, { status: 400 });
   }

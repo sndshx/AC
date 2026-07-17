@@ -48,6 +48,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/shared/utils";
 import { DailyActivityForm } from "./daily-activity-form";
+import { WhatsAppAccountsManager } from "./whatsapp-accounts-manager";
 
 type EnhancedDashboardProps = {
   role: "ADMIN" | "USER";
@@ -593,7 +594,7 @@ function UserDashboardView({ data, refetch }: UserDashboardViewProps) {
         <div className="grid gap-6 lg:grid-cols-3">
           
           {/* Main Workspace Activities (Left 2 columns) */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-6">
             
             {/* Chart Area */}
             <Card className="shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
@@ -800,49 +801,12 @@ function UserDashboardView({ data, refetch }: UserDashboardViewProps) {
           {/* Right Diagnostics & Feeds Column */}
           <div className="space-y-6">
             
+            {/* WhatsApp Numbers Manager */}
+            <WhatsAppAccountsManager />
+
             {/* Daily Activity Update Form */}
             <DailyActivityForm />
-
-            {/* Recent Notifications Feed */}
-            <Card className="shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
-                <CardTitle className="text-lg font-bold text-slate-900 dark:text-white">
-                  Recent Notifications
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Recent notifications and alerts
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-4 px-3">
-                <div className="h-64 overflow-y-auto pr-1 space-y-3 scrollbar-thin">
-                  {data.activities.map((activity: any, index: number) => (
-                    <div 
-                      key={index} 
-                      className="flex items-start gap-2.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs"
-                    >
-                      <Avatar className="h-7 w-7 border shadow-sm flex-shrink-0">
-                        <AvatarFallback className="bg-slate-200 text-slate-700 font-bold text-[10px]">
-                          {activity.user.split(' ').map((n: string) => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">
-                          {activity.user}
-                        </p>
-                        <p className="text-slate-500 dark:text-slate-400 text-[11px] truncate mt-0.5">
-                          {activity.action}
-                        </p>
-                        <span className="text-[10px] text-slate-400 mt-1 block">
-                          {activity.time}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
           </div>
-
         </div>
 
       </div>

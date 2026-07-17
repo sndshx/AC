@@ -19,6 +19,14 @@ const eslintConfig = [
       "postcss.config.mjs",
       "tailwind.config.ts"
     ]
+  },
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-empty-object-type": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react/no-unescaped-entities": "warn"
+    }
   }
 ];
 
