@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, Loader2, CheckCircle2 } from "lucide-react";
+import { Save, Loader2, CheckCircle2, Smartphone, Shield } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +12,19 @@ interface ActivityLog {
   updatedAt: string;
 }
 
+interface WhatsAppAccount {
+  id: string;
+  phoneNumber: string;
+  label: string | null;
+  status: string;
+  healthScore: number;
+}
+
+/** Maps any DB status to the simplified "Active" | "Banned" control value */
+function toSimpleStatus(dbStatus: string): "ACTIVE" | "BANNED" {
+  return dbStatus === "BANNED" ? "BANNED" : "ACTIVE";
+}
+
 export function DailyActivityForm() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -20,26 +33,57 @@ export function DailyActivityForm() {
   const [remarks, setRemarks] = useState<string>("");
   const [existingEntry, setExistingEntry] = useState<ActivityLog | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<WhatsAppAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  // The simplified status shown in the Status dropdown
+  const [selectedStatus, setSelectedStatus] = useState<"ACTIVE" | "BANNED">("ACTIVE");
 
-  // Fetch today's entry on mount
+  // Fetch accounts and today's entry on mount
   useEffect(() => {
-    fetchTodayEntry();
+    fetchAccounts();
   }, []);
 
-  const fetchTodayEntry = async () => {
+  // Re-fetch today's entry when account selection changes; also sync status dropdown
+  useEffect(() => {
+    fetchTodayEntry(selectedAccountId || null);
+    if (selectedAccountId) {
+      const acc = accounts.find((a) => a.id === selectedAccountId);
+      if (acc) setSelectedStatus(toSimpleStatus(acc.status));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccountId]);
+
+  const fetchAccounts = async () => {
+    try {
+      const res = await fetch("/api/whatsapp-accounts");
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data.accounts || []);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const fetchTodayEntry = async (accountId: string | null) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/activity-log");
-      if (!response.ok) {
-        throw new Error("Failed to fetch activity log");
-      }
+      const url = accountId
+        ? `/api/activity-log?whatsAppAccountId=${accountId}`
+        : "/api/activity-log";
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Failed to fetch activity log");
       const data = await response.json();
-      
+
       if (data.activityLog) {
         setExistingEntry(data.activityLog);
         setMessageCount(data.activityLog.messageCount);
         setRemarks(data.activityLog.remarks || "");
+      } else {
+        setExistingEntry(null);
+        setMessageCount(0);
+        setRemarks("");
       }
     } catch (err) {
       console.error("Error fetching activity log:", err);
@@ -51,7 +95,7 @@ export function DailyActivityForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (messageCount < 0) {
       setError("Message count cannot be negative");
       return;
@@ -62,15 +106,21 @@ export function DailyActivityForm() {
     setSaved(false);
 
     try {
+      const body: Record<string, unknown> = {
+        messageCount,
+        remarks: remarks.trim() || null,
+        whatsAppAccountId: selectedAccountId || null
+      };
+
+      // Only send status update when a specific account is selected
+      if (selectedAccountId) {
+        body.whatsAppAccountStatus = selectedStatus;
+      }
+
       const response = await fetch("/api/activity-log", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          messageCount,
-          remarks: remarks.trim() || null
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -82,11 +132,13 @@ export function DailyActivityForm() {
       setExistingEntry(data.activityLog);
       setSaved(true);
 
-      // Clear success message after 3 seconds
+      // Refresh accounts so status badge stays in sync
+      await fetchAccounts();
+
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving activity log:", err);
-      setError(err.message || "Failed to save activity");
+      setError(err instanceof Error ? err.message : "Failed to save activity");
     } finally {
       setSaving(false);
     }
@@ -107,6 +159,8 @@ export function DailyActivityForm() {
     );
   }
 
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
+
   return (
     <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow bg-white dark:bg-slate-900">
       <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
@@ -119,10 +173,76 @@ export function DailyActivityForm() {
       </CardHeader>
       <CardContent className="px-3 pb-3 pt-3">
         <form onSubmit={handleSubmit} className="space-y-3">
+
+          {/* WhatsApp Account Selector */}
+          {accounts.length > 0 && (
+            <div className="space-y-2">
+              {/* Number dropdown */}
+              <div>
+                <label
+                  htmlFor="whatsAppAccount"
+                  className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1"
+                >
+                  <Smartphone className="h-3 w-3 text-[#00C853]" />
+                  Tag to WhatsApp Number (Optional)
+                </label>
+                <select
+                  id="whatsAppAccount"
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#00C853] focus:border-transparent"
+                >
+                  <option value="">General (all accounts)</option>
+                  {accounts.map((acc) => {
+                    const isBanned = acc.status === "BANNED";
+                    const displayName = acc.label
+                      ? `${acc.label} (${acc.phoneNumber})`
+                      : acc.phoneNumber;
+                    return (
+                      <option key={acc.id} value={acc.id}>
+                        {displayName}{isBanned ? " (Banned)" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Status dropdown — only visible when a specific account is selected */}
+              {selectedAccount && (
+                <div>
+                  <label
+                    htmlFor="accountStatus"
+                    className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1"
+                  >
+                    <Shield className="h-3 w-3 text-slate-400" />
+                    Status
+                  </label>
+                  <select
+                    id="accountStatus"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value as "ACTIVE" | "BANNED")}
+                    className={`w-full px-2 py-1.5 text-xs border rounded-md focus:outline-none focus:ring-2 focus:ring-[#00C853] focus:border-transparent transition-colors ${selectedStatus === "BANNED"
+                        ? "border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+                        : "border-emerald-400 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400"
+                      }`}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="BANNED">Banned</option>
+                  </select>
+                  <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5">
+                    {selectedStatus === "BANNED"
+                      ? "Marked as banned — will be saved on Submit."
+                      : "Account is active — status saved on Submit."}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Message Count */}
           <div>
-            <label 
-              htmlFor="messageCount" 
+            <label
+              htmlFor="messageCount"
               className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-1"
             >
               Messages Sent Today <span className="text-red-500">*</span>
@@ -141,8 +261,8 @@ export function DailyActivityForm() {
 
           {/* Remarks */}
           <div>
-            <label 
-              htmlFor="remarks" 
+            <label
+              htmlFor="remarks"
               className="block text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-1"
             >
               Remarks (Optional)

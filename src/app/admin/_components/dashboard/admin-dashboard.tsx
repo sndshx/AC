@@ -1,89 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
-  Users, MessageSquare, ShieldCheck, Activity, CheckCircle2, Clock, 
-  ArrowUpRight, RefreshCw, ChevronRight, TrendingUp, Bot, CalendarDays, Settings
+  Users, MessageSquare, Activity, CheckCircle2, Clock, 
+  ArrowUpRight, RefreshCw, ChevronRight, TrendingUp, Bot, CalendarDays, Settings,
+  Loader2
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip,
-  CartesianGrid, PieChart as RechartsPieChart, Pie, Cell, Legend
+  CartesianGrid, PieChart as RechartsPieChart, Pie, Cell
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { DailyActivityList } from "./daily-activity-list";
 
-// ── Data ──────────────────────────────────────────────────────────────
-const campaignActivityData = [
-  { day: "Sat", messages: 850, replies: 215, opens: 680 },
-  { day: "Sun", messages: 620, replies: 148, opens: 496 },
-  { day: "Mon", messages: 1240, replies: 312, opens: 992 },
-  { day: "Tue", messages: 1380, replies: 345, opens: 1104 },
-  { day: "Wed", messages: 1520, replies: 380, opens: 1216 },
-  { day: "Thu", messages: 1650, replies: 412, opens: 1320 },
-  { day: "Fri", messages: 1420, replies: 355, opens: 1136 },
-];
-
-const hourlyActivityData = [
-  { hour: "12am", activity: 12 },
-  { hour: "3am", activity: 8 },
-  { hour: "6am", activity: 25 },
-  { hour: "9am", activity: 95 },
-  { hour: "12pm", activity: 120 },
-  { hour: "3pm", activity: 135 },
-  { hour: "6pm", activity: 98 },
-  { hour: "9pm", activity: 45 },
-];
-
-const teamRoleDistribution = [
-  { name: "Marketers", value: 11, color: "#00C853" },
-  { name: "Managers", value: 3, color: "#143D2C" },
-  { name: "Admins", value: 2, color: "#3B82F6" },
-];
-
-const recentUsers = [
-  { name: "Sarah Johnson", email: "sarah.j@company.com", role: "USER", status: "ACTIVE", lastActive: "2m ago" },
-  { name: "Mike Chen", email: "mike.c@company.com", role: "USER", status: "ACTIVE", lastActive: "15m ago" },
-  { name: "Emma Davis", email: "emma.d@company.com", role: "USER", status: "ACTIVE", lastActive: "1h ago" },
-  { name: "Alex Kumar", email: "alex.k@company.com", role: "ADMIN", status: "ACTIVE", lastActive: "5m ago" },
-  { name: "Lisa Wong", email: "lisa.w@company.com", role: "USER", status: "ACTIVE", lastActive: "30m ago" },
-];
-
-const whatsappHealthStats = [
-  { user: "Sarah J.", status: "ACTIVE", health: 98, messages: 1250, replies: 312, rate: 24.9 },
-  { user: "Mike C.", status: "ACTIVE", health: 95, messages: 1180, replies: 295, rate: 25.0 },
-  { user: "Emma D.", status: "WARNING", health: 72, messages: 890, replies: 198, rate: 22.2 },
-  { user: "Alex K.", status: "ACTIVE", health: 100, messages: 420, replies: 112, rate: 26.6 },
-  { user: "Lisa W.", status: "ACTIVE", health: 88, messages: 1050, replies: 252, rate: 24.0 },
-];
-
-const taskStatuses = [
-  { label: "Completed", count: 142, pct: 58, color: "#00C853" },
-  { label: "In Progress", count: 68, pct: 28, color: "#3B82F6" },
-  { label: "Todo", count: 34, pct: 14, color: "#94a3b8" },
-];
-
-const recentTasks = [
-  { title: "Launch Summer Campaign", assignee: "Sarah J.", priority: "HIGH", status: "IN_PROGRESS", dueDate: "Today" },
-  { title: "Follow-up with 50 leads", assignee: "Mike C.", priority: "URGENT", status: "IN_PROGRESS", dueDate: "Today" },
-  { title: "Weekly Report Generation", assignee: "Emma D.", priority: "MEDIUM", status: "COMPLETED", dueDate: "Yesterday" },
-  { title: "WhatsApp Template Review", assignee: "Lisa W.", priority: "HIGH", status: "TODO", dueDate: "Tomorrow" },
-  { title: "Client Meeting Prep", assignee: "Alex K.", priority: "MEDIUM", status: "COMPLETED", dueDate: "2 days ago" },
-];
+// ── Types ─────────────────────────────────────────────────────────────
+interface DashboardStats {
+  totalTeamMembers: number;
+  totalTeamMembersTrend: string;
+  whatsappMessagesMonthly: number;
+  whatsappMessagesDaily: number;
+  whatsappTopContributor: { name: string; phone: string; count: number } | null;
+  campaignReplies: number;
+  campaignRepliesTrend: string;
+  campaignRepliesSub: string;
+  marketingTasks: number;
+  marketingTasksSub: string;
+  marketingTasksTrend: string;
+  weeklyCampaignPerformance: Array<{ day: string; messages: number; replies: number }>;
+  teamRoleDistribution: Array<{ name: string; value: number; color: string }>;
+  taskStatuses: Array<{ label: string; count: number; pct: number; color: string }>;
+  whatsappHealthStats: Array<{ user: string; status: string; health: number; messages: number; replies: number; rate: number }>;
+  recentActiveUsers: Array<{ name: string; email: string; role: string; status: string; lastActive: string }>;
+  recentTasks: Array<{ title: string; assignee: string; priority: string; status: string; dueDate: string }>;
+  hourlyActivityData: Array<{ hour: string; activity: number }>;
+  topPerformers: Array<{ user: string; replies: number; rate: number }>;
+  campaignStats: { activeCampaigns: number; avgOpenRate: number; conversionRate: number };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────
 const roleColor: Record<string, string> = {
   USER:  "bg-slate-100 text-slate-600",
   ADMIN: "bg-blue-50 text-blue-600",
-};
-
-const statusColor: Record<string, string> = {
-  ACTIVE:   "bg-emerald-50 text-emerald-600",
-  DISABLED: "bg-red-50 text-red-600",
 };
 
 const healthColor: Record<string, string> = {
@@ -107,7 +68,7 @@ const taskStatusColor: Record<string, string> = {
   BLOCKED:     "bg-red-50 text-red-600",
 };
 
-// ── Top‑row stat cards ────────────────────────────────────────────────
+// ── Top-row stat cards ────────────────────────────────────────────────
 interface StatCardProps {
   icon: React.ElementType;
   iconBg: string;
@@ -118,9 +79,10 @@ interface StatCardProps {
   label: string;
   sub: string;
   trend?: string;
+  topLine?: string;
 }
 
-function StatCard({ icon: Icon, iconBg, iconColor, badge, badgeColor = "text-[#00C853]", value, label, sub, trend }: StatCardProps) {
+function StatCard({ icon: Icon, iconBg, iconColor, badge, badgeColor = "text-[#00C853]", value, label, sub, trend, topLine }: StatCardProps) {
   return (
     <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-900 relative overflow-hidden group">
       <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-slate-50 dark:from-slate-800 to-transparent rounded-full -mr-12 -mt-12 opacity-50 group-hover:scale-110 transition-transform duration-500" />
@@ -138,34 +100,8 @@ function StatCard({ icon: Icon, iconBg, iconColor, badge, badgeColor = "text-[#0
         <p className="text-xl font-bold text-slate-900 dark:text-white leading-none mb-0.5">{value}</p>
         <p className="text-[10px] font-semibold text-slate-700 dark:text-slate-300 mb-0.5">{label}</p>
         <p className="text-[9px] text-slate-500 dark:text-slate-400 leading-snug">{sub}</p>
+        {topLine && <p className="text-[9px] text-[#00C853] dark:text-emerald-400 font-semibold mt-1 truncate">{topLine}</p>}
         {trend && <p className="text-[8px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">↗ {trend}</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ── Compact secondary stat card ───────────────────────────────────────
-interface SmallStatProps {
-  icon: React.ElementType;
-  iconBg: string;
-  iconColor: string;
-  value: string;
-  label: string;
-  subtitle?: string;
-}
-
-function SmallStat({ icon: Icon, iconBg, iconColor, value, label, subtitle }: SmallStatProps) {
-  return (
-    <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm hover:shadow-md transition-all duration-300 bg-white dark:bg-slate-900 group">
-      <CardContent className="p-2.5 flex items-center gap-2">
-        <div className={`h-7 w-7 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform`}>
-          <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
-        </div>
-        <div className="flex-1">
-          <p className="text-lg font-bold text-slate-900 dark:text-white leading-none">{value}</p>
-          <p className="text-[9px] text-slate-600 dark:text-slate-300 mt-0.5 font-medium">{label}</p>
-          {subtitle && <p className="text-[8px] text-slate-400 dark:text-slate-500 mt-0.5">{subtitle}</p>}
-        </div>
       </CardContent>
     </Card>
   );
@@ -189,16 +125,50 @@ function ChartTooltip({ active, payload, label }: any) {
 // ── Main Component ────────────────────────────────────────────────────
 export function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const handleRefresh = () => {
+  const fetchDashboardStats = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/dashboard-stats");
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, [fetchDashboardStats]);
+
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1200);
+    await fetchDashboardStats();
+    setRefreshing(false);
   };
 
   const now = new Date().toLocaleString("en-US", {
     month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 text-[#00C853] animate-spin" />
+          <p className="text-sm text-slate-500 font-semibold">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalMembers = stats?.totalTeamMembers ?? 1;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-50/80 to-blue-50/30 px-3 py-3 space-y-3">
@@ -219,6 +189,7 @@ export function AdminDashboard() {
             size="sm"
             className="h-7 text-[10px] px-2 gap-1 font-normal shadow-sm hover:shadow transition-all"
             onClick={handleRefresh}
+            disabled={refreshing}
           >
             <RefreshCw className={`h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
             Refresh Data
@@ -236,28 +207,36 @@ export function AdminDashboard() {
             icon={Users}
             iconBg="bg-gradient-to-br from-blue-50 to-blue-100"
             iconColor="text-blue-600"
-            badge="6 new"
-            value="16"
+            badge={stats ? stats.totalTeamMembersTrend : "—"}
+            value={stats ? stats.totalTeamMembers.toString() : "—"}
             label="Total Team Members"
             sub="Active marketing team across all departments"
-            trend="+37% vs last month"
+            trend={stats ? stats.totalTeamMembersTrend : "—"}
           />
         </div>
-        <div 
-          className="cursor-pointer transform transition-all hover:scale-105"
-          onClick={() => router.push('/admin/activity-logs')}
+        <Link
+          href="/admin/whatsapp"
+          className="cursor-pointer transform transition-all hover:scale-105 block"
         >
           <StatCard
             icon={MessageSquare}
             iconBg="bg-gradient-to-br from-emerald-50 to-emerald-100"
             iconColor="text-emerald-700"
-            badge="↑18%"
-            value="8,680"
-            label="Messages Sent (7d)"
-            sub="1,240 avg per day • 72% open rate"
-            trend="+1,240 vs last week"
+            badge={stats ? `${stats.whatsappMessagesDaily.toLocaleString()} today` : "WhatsApp"}
+            value={stats ? stats.whatsappMessagesMonthly.toLocaleString() : "—"}
+            label="WhatsApp Messages (mo.)"
+            sub={stats
+              ? `${stats.whatsappMessagesDaily.toLocaleString()} sent today across all numbers`
+              : "Loading live data…"
+            }
+            topLine={
+              stats?.whatsappTopContributor
+                ? `Top: ${stats.whatsappTopContributor.name ?? stats.whatsappTopContributor.phone} (${stats.whatsappTopContributor.count.toLocaleString()})`
+                : undefined
+            }
+            trend="View all numbers →"
           />
-        </div>
+        </Link>
         <div 
           className="cursor-pointer transform transition-all hover:scale-105"
           onClick={() => router.push('/admin/marketing')}
@@ -266,12 +245,12 @@ export function AdminDashboard() {
             icon={Activity}
             iconBg="bg-gradient-to-br from-green-50 to-green-100"
             iconColor="text-green-600"
-            badge="95% avg"
+            badge={stats ? stats.campaignRepliesTrend : "—"}
             badgeColor="text-emerald-600"
-            value="2,167"
+            value={stats ? stats.campaignReplies.toLocaleString() : "—"}
             label="Campaign Replies"
-            sub="25% conversion • 542 qualified leads"
-            trend="+312 vs last week"
+            sub={stats ? stats.campaignRepliesSub : "—"}
+            trend={stats ? stats.campaignRepliesTrend : "—"}
           />
         </div>
         <div 
@@ -282,68 +261,12 @@ export function AdminDashboard() {
             icon={CheckCircle2}
             iconBg="bg-gradient-to-br from-indigo-50 to-indigo-100"
             iconColor="text-indigo-600"
-            badge="58% done"
+            badge={stats ? stats.marketingTasksTrend : "—"}
             badgeColor="text-indigo-600"
-            value="244"
+            value={stats ? stats.marketingTasks.toString() : "—"}
             label="Marketing Tasks"
-            sub="142 completed • 68 in progress • 34 pending"
-            trend="+28 completed today"
-          />
-        </div>
-      </div>
-
-      {/* == Row 2: 4 secondary stat cards ====================== */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-        <div 
-          className="cursor-pointer transform transition-all hover:scale-105"
-          onClick={() => router.push('/admin/reports')}
-        >
-          <SmallStat 
-            icon={Bot} 
-            iconBg="bg-gradient-to-br from-purple-50 to-purple-100" 
-            iconColor="text-purple-600" 
-            value="12" 
-            label="AI Recommendations" 
-            subtitle="3 new today"
-          />
-        </div>
-        <div 
-          className="cursor-pointer transform transition-all hover:scale-105"
-          onClick={() => router.push('/admin/reports')}
-        >
-          <SmallStat 
-            icon={TrendingUp} 
-            iconBg="bg-gradient-to-br from-emerald-50 to-emerald-100" 
-            iconColor="text-emerald-600" 
-            value="88%" 
-            label="Avg Success Rate" 
-            subtitle="↑4% this week"
-          />
-        </div>
-        <div 
-          className="cursor-pointer transform transition-all hover:scale-105"
-          onClick={() => router.push('/admin/activity-logs')}
-        >
-          <SmallStat 
-            icon={Clock} 
-            iconBg="bg-gradient-to-br from-amber-50 to-amber-100" 
-            iconColor="text-amber-600" 
-            value="2.4h" 
-            label="Avg Response Time" 
-            subtitle="↓30min improvement"
-          />
-        </div>
-        <div 
-          className="cursor-pointer transform transition-all hover:scale-105"
-          onClick={() => router.push('/admin/marketing')}
-        >
-          <SmallStat 
-            icon={ShieldCheck} 
-            iconBg="bg-gradient-to-br from-blue-50 to-blue-100" 
-            iconColor="text-blue-600" 
-            value="15/16" 
-            label="Healthy WhatsApp" 
-            subtitle="1 needs attention"
+            sub={stats ? stats.marketingTasksSub : "—"}
+            trend={stats ? stats.marketingTasksTrend : "—"}
           />
         </div>
       </div>
@@ -374,7 +297,7 @@ export function AdminDashboard() {
           <CardContent className="px-2 pb-3 pt-2">
             <div className="h-40">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={campaignActivityData} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
+                <LineChart data={stats ? stats.weeklyCampaignPerformance : []} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.15)" />
                   <XAxis 
                     dataKey="day" 
@@ -442,7 +365,7 @@ export function AdminDashboard() {
               <ResponsiveContainer width="100%" height="100%">
                 <RechartsPieChart>
                   <Pie
-                    data={teamRoleDistribution}
+                    data={stats ? stats.teamRoleDistribution : []}
                     cx="50%"
                     cy="50%"
                     innerRadius={32}
@@ -450,7 +373,7 @@ export function AdminDashboard() {
                     paddingAngle={4}
                     dataKey="value"
                   >
-                    {teamRoleDistribution.map((entry, i) => (
+                    {(stats ? stats.teamRoleDistribution : []).map((entry, i) => (
                       <Cell key={i} fill={entry.color} />
                     ))}
                   </Pie>
@@ -462,7 +385,7 @@ export function AdminDashboard() {
               </ResponsiveContainer>
             </div>
             <div className="space-y-1.5 mt-2">
-              {teamRoleDistribution.map((p) => (
+              {(stats ? stats.teamRoleDistribution : []).map((p) => (
                 <div key={p.name} className="flex items-center justify-between text-[10px]">
                   <div className="flex items-center gap-1.5">
                     <span className="h-1.5 w-1.5 rounded-full shadow-sm" style={{ backgroundColor: p.color }} />
@@ -488,20 +411,23 @@ export function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2.5 space-y-2.5">
-            {teamRoleDistribution.map((p) => (
-              <div key={p.name} className="space-y-1">
-                <div className="flex items-center justify-between text-[9px]">
-                  <span className="font-bold uppercase tracking-wide" style={{ color: p.color }}>{p.name}</span>
-                  <span className="text-slate-500 dark:text-slate-400 font-medium">{p.value} ({Math.round(p.value / 16 * 100)}%)</span>
+            {(stats ? stats.teamRoleDistribution : []).map((p) => {
+              const pct = totalMembers > 0 ? Math.round(p.value / totalMembers * 100) : 0;
+              return (
+                <div key={p.name} className="space-y-1">
+                  <div className="flex items-center justify-between text-[9px]">
+                    <span className="font-bold uppercase tracking-wide" style={{ color: p.color }}>{p.name}</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-medium">{p.value} ({pct}%)</span>
+                  </div>
+                  <div className="h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{ width: `${pct}%`, backgroundColor: p.color }}
+                    />
+                  </div>
                 </div>
-                <div className="h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-700"
-                    style={{ width: `${Math.round(p.value / 16 * 100)}%`, backgroundColor: p.color }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -514,7 +440,7 @@ export function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2.5 space-y-2">
-            {taskStatuses.map((j) => (
+            {(stats ? stats.taskStatuses : []).map((j) => (
               <div key={j.label} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
                 <div className="flex items-center gap-1.5">
                   <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: j.color }} />
@@ -540,26 +466,25 @@ export function AdminDashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2.5 space-y-1.5">
-            {whatsappHealthStats.slice(0, 5).map((w, i) => (
+            {(stats ? stats.whatsappHealthStats : []).map((w, i) => (
               <div key={i} className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200">{w.user}</p>
-                  <p className="text-[8px] text-slate-400 dark:text-slate-500">{w.messages} messages</p>
+                  <p className="text-[8px] text-slate-400 dark:text-slate-500">{w.messages.toLocaleString()} messages</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-slate-900 dark:text-white">{w.health}%</p>
-                  <span className={`text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded ${healthColor[w.status]} text-white`}>{w.status}</span>
+                  <span className={`text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded ${healthColor[w.status] || "bg-emerald-500"} text-white`}>{w.status}</span>
                 </div>
               </div>
             ))}
+            {(stats ? stats.whatsappHealthStats : []).length === 0 && (
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center py-4">No active accounts</p>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* == Row 5: Daily Activity Updates ========================= */}
-      <div className="grid grid-cols-1 gap-3">
-        <DailyActivityList />
-      </div>
 
       {/* == Row 6: Recent Team Members | Recent Tasks ============== */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -578,7 +503,7 @@ export function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2 space-y-1.5">
-            {recentUsers.map((u, i) => (
+            {(stats ? stats.recentActiveUsers : []).map((u, i) => (
               <div 
                 key={i} 
                 className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
@@ -594,13 +519,16 @@ export function AdminDashboard() {
                   <p className="text-[8px] text-slate-400 dark:text-slate-500 truncate">{u.email}</p>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
-                  <span className={`text-[8px] font-normal uppercase px-1 py-0.5 rounded tracking-wide ${roleColor[u.role]}`}>
+                  <span className={`text-[8px] font-normal uppercase px-1 py-0.5 rounded tracking-wide ${roleColor[u.role] || "bg-slate-100"}`}>
                     {u.role}
                   </span>
                   <span className="text-[7px] text-slate-400 dark:text-slate-500">{u.lastActive}</span>
                 </div>
               </div>
             ))}
+            {(stats ? stats.recentActiveUsers : []).length === 0 && (
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center py-4">No team members</p>
+            )}
           </CardContent>
         </Card>
 
@@ -618,7 +546,7 @@ export function AdminDashboard() {
             </div>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2 space-y-1.5">
-            {recentTasks.map((t, i) => (
+            {(stats ? stats.recentTasks : []).map((t, i) => (
               <div 
                 key={i} 
                 className="flex items-start justify-between gap-2 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
@@ -631,15 +559,18 @@ export function AdminDashboard() {
                   </p>
                 </div>
                 <div className="flex-shrink-0 text-right flex flex-col items-end gap-1">
-                  <span className={`text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${priorityColor[t.priority]}`}>
+                  <span className={`text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${priorityColor[t.priority] || "bg-slate-100"}`}>
                     {t.priority}
                   </span>
-                  <span className={`text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${taskStatusColor[t.status]}`}>
+                  <span className={`text-[8px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${taskStatusColor[t.status] || "bg-slate-100"}`}>
                     {t.status.replace('_', ' ')}
                   </span>
                 </div>
               </div>
             ))}
+            {(stats ? stats.recentTasks : []).length === 0 && (
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center py-4">No tasks found</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -656,14 +587,14 @@ export function AdminDashboard() {
               <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Team activity distribution across 24 hours</p>
             </div>
             <Badge className="bg-[#E8F7EE] text-[#143D2C] dark:bg-[#143D2C] dark:text-[#E8F7EE] text-[9px] font-semibold px-2 py-0.5">
-              Peak: 3pm
+              Real-time message traffic
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="px-2 pb-3 pt-2">
           <div className="h-32">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={hourlyActivityData} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
+              <LineChart data={stats ? stats.hourlyActivityData : []} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
                 <defs>
                   <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#00C853" stopOpacity={0.3}/>
@@ -697,7 +628,7 @@ export function AdminDashboard() {
                   strokeWidth={2.5} 
                   dot={{ r: 3, fill: "#00C853", strokeWidth: 2, stroke: "#fff" }} 
                   activeDot={{ r: 5 }}
-                  name="Activity"
+                  name="Messages Sent"
                   fill="url(#activityGradient)"
                 />
               </LineChart>
@@ -716,10 +647,10 @@ export function AdminDashboard() {
               <TrendingUp className="h-3 w-3 text-[#00C853]" />
               Top Performers
             </CardTitle>
-            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Highest reply rates this week</p>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Highest reply rates overall</p>
           </CardHeader>
           <CardContent className="px-3 pb-3 pt-2 space-y-2">
-            {whatsappHealthStats.sort((a, b) => b.rate - a.rate).slice(0, 3).map((w, i) => (
+            {(stats ? stats.topPerformers : []).map((w, i) => (
               <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-emerald-50 to-transparent dark:from-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30">
                 <div className="flex items-center gap-2">
                   <div className="flex items-center justify-center h-6 w-6 rounded-full bg-[#00C853] text-white text-[9px] font-bold">
@@ -727,7 +658,7 @@ export function AdminDashboard() {
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200">{w.user}</p>
-                    <p className="text-[8px] text-slate-500 dark:text-slate-400">{w.replies} replies</p>
+                    <p className="text-[8px] text-slate-500 dark:text-slate-400">{w.replies.toLocaleString()} replies</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -736,6 +667,9 @@ export function AdminDashboard() {
                 </div>
               </div>
             ))}
+            {(stats ? stats.topPerformers : []).length === 0 && (
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center py-4">No data available</p>
+            )}
           </CardContent>
         </Card>
 
@@ -755,7 +689,9 @@ export function AdminDashboard() {
             >
               <div>
                 <p className="text-[9px] text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wide">Active Campaigns</p>
-                <p className="text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">12</p>
+                <p className="text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">
+                  {stats ? stats.campaignStats.activeCampaigns.toLocaleString() : "—"}
+                </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
                 <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -767,7 +703,9 @@ export function AdminDashboard() {
             >
               <div>
                 <p className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wide">Avg Open Rate</p>
-                <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-0.5">72%</p>
+                <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-0.5">
+                  {stats ? `${stats.campaignStats.avgOpenRate}%` : "—"}
+                </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
                 <Activity className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -779,7 +717,9 @@ export function AdminDashboard() {
             >
               <div>
                 <p className="text-[9px] text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wide">Conversion Rate</p>
-                <p className="text-xl font-bold text-purple-700 dark:text-purple-300 mt-0.5">25%</p>
+                <p className="text-xl font-bold text-purple-700 dark:text-purple-300 mt-0.5">
+                  {stats ? `${stats.campaignStats.conversionRate}%` : "—"}
+                </p>
               </div>
               <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
                 <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />

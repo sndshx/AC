@@ -31,11 +31,13 @@ async function main() {
     }
   });
 
-  await prisma.whatsAppStatus.upsert({
-    where: { userId: user.id },
+  await prisma.whatsAppAccount.upsert({
+    where: { phoneNumber: "9876543210" },
     update: {},
     create: {
       userId: user.id,
+      phoneNumber: "9876543210",
+      label: "Noah Patel (Main)",
       status: WhatsAppHealth.ACTIVE,
       healthScore: 94,
       dailyMessages: 148,

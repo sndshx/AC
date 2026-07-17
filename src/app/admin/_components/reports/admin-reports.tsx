@@ -139,12 +139,17 @@ interface UserDetailData {
     teamName: string | null;
     createdAt: string;
     lastLoginAt: string | null;
-    whatsAppStatus: {
+    whatsAppAccounts: Array<{
+      id: string;
+      phoneNumber: string;
+      label: string | null;
       status: string;
       healthScore: number;
       dailyMessages: number;
       monthlyMessages: number;
-    } | null;
+      lastActivityAt: string | null;
+      createdAt: string;
+    }>;
     aiProgress: Array<{
       id: string;
       aiScore: number;
@@ -932,6 +937,138 @@ function UserActivityGroup({ userId, activities }: { userId: string; activities:
   );
 }
 
+// ── WhatsApp Numbers List ─────────────────────────────────────────────
+function relativeTime(dateStr: string | null): string {
+  if (!dateStr) return "Never";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
+
+type WaAccount = {
+  id: string;
+  phoneNumber: string;
+  label: string | null;
+  status: string;
+  healthScore: number;
+  dailyMessages: number;
+  monthlyMessages: number;
+  lastActivityAt: string | null;
+  createdAt: string;
+};
+
+const WA_STATUS_CONFIG: Record<string, { bg: string; text: string; border: string; dot: string; bar: string }> = {
+  ACTIVE:  { bg: "bg-emerald-50",  text: "text-emerald-700",  border: "border-emerald-200", dot: "bg-emerald-500",  bar: "bg-emerald-500"  },
+  WARNING: { bg: "bg-amber-50",    text: "text-amber-700",    border: "border-amber-200",   dot: "bg-amber-500",    bar: "bg-amber-500"    },
+  LIMITED: { bg: "bg-orange-50",   text: "text-orange-700",   border: "border-orange-200",  dot: "bg-orange-500",   bar: "bg-orange-500"   },
+  BANNED:  { bg: "bg-red-50",      text: "text-red-700",      border: "border-red-200",     dot: "bg-red-500",      bar: "bg-red-500"      },
+};
+
+function WhatsAppNumbersList({ accounts }: { accounts: WaAccount[] }) {
+  return (
+    <div className="space-y-3">
+      {/* Section header */}
+      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+        <Wifi className="h-3.5 w-3.5 text-[#00C853] shrink-0" />
+        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+          WhatsApp Numbers ({accounts.length})
+        </h4>
+      </div>
+
+      {accounts.length === 0 ? (
+        /* ── Empty state ── */
+        <div className="flex flex-col items-center gap-2 py-7 text-center">
+          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+            <WifiOff className="h-5 w-5 text-slate-400" />
+          </div>
+          <p className="text-xs font-semibold text-slate-500">No WhatsApp numbers added yet</p>
+          <p className="text-[10px] text-slate-400 max-w-[200px]">
+            This user hasn&apos;t connected any WhatsApp accounts.
+          </p>
+        </div>
+      ) : (
+        /* ── Account cards (capped height, internal scroll when >4) ── */
+        <div className={cn("space-y-2", accounts.length > 4 && "max-h-72 overflow-y-auto pr-1")}>
+          {accounts.map((acc) => {
+            const cfg = WA_STATUS_CONFIG[acc.status] ?? WA_STATUS_CONFIG.ACTIVE;
+            const scoreColor =
+              acc.healthScore >= 80 ? "text-emerald-600" :
+              acc.healthScore >= 50 ? "text-amber-600" : "text-red-600";
+            return (
+              <div
+                key={acc.id}
+                className={cn(
+                  "rounded-xl border p-3 space-y-2.5 transition-shadow hover:shadow-sm",
+                  cfg.bg, cfg.border
+                )}
+              >
+                {/* Top row: phone + label | status badge */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 leading-tight tracking-wide">
+                      {acc.phoneNumber}
+                    </p>
+                    {acc.label && (
+                      <p className="text-[10px] text-slate-500 mt-0.5 truncate">{acc.label}</p>
+                    )}
+                  </div>
+                  <Badge
+                    className={cn(
+                      "text-[9px] font-bold uppercase tracking-wide border shrink-0 flex items-center gap-1",
+                      cfg.bg, cfg.text, cfg.border
+                    )}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", cfg.dot)} />
+                    {acc.status}
+                  </Badge>
+                </div>
+
+                {/* Health score bar */}
+                <div className="space-y-1">
+                  <div className="h-1 w-full bg-white/70 rounded-[2px] overflow-hidden border border-white/50">
+                    <div
+                      className={cn("h-full rounded-[2px] transition-all", cfg.bar)}
+                      style={{ width: `${Math.min(acc.healthScore, 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Stats row */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="flex items-center gap-1 text-[10px] text-slate-600">
+                    <span className="font-semibold">Health:</span>
+                    <span className={cn("font-bold", scoreColor)}>{acc.healthScore}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-300">·</span>
+                  <span className="text-[10px] text-slate-600">
+                    <span className="font-semibold">Daily:</span>{" "}
+                    <span className="font-bold text-slate-700">{acc.dailyMessages}</span>
+                  </span>
+                  <span className="text-[10px] text-slate-300">·</span>
+                  <span className="text-[10px] text-slate-600">
+                    <span className="font-semibold">Monthly:</span>{" "}
+                    <span className="font-bold text-slate-700">{acc.monthlyMessages}</span>
+                  </span>
+                  <span className="ml-auto text-[9px] text-slate-400 italic">
+                    Last active {relativeTime(acc.lastActivityAt)}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── WhatsApp Status Badge ─────────────────────────────────────────────
 function WhatsAppBadge({ status, score }: { status: string | null; score: number | null }) {
   if (!status) return <span className="text-xs text-slate-400">—</span>;
@@ -954,7 +1091,6 @@ function WhatsAppBadge({ status, score }: { status: string | null; score: number
 function UserDetailDrawer({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [data, setData] = useState<UserDetailData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState("overview");
 
   useEffect(() => {
     setLoading(true);
@@ -990,12 +1126,50 @@ function UserDetailDrawer({ userId, onClose }: { userId: string; onClose: () => 
       ["WhatsApp Health Score", s.whatsAppHealthScore ?? "—"],
       ["Completion Rate", `${s.completionRate}%`],
       ["", ""],
+      ["WhatsApp Accounts", ""],
+      ["Label", "Phone Number", "Status", "Health Score", "Daily Messages", "Monthly Messages"],
+      ...(u.whatsAppAccounts || []).map((wa) => [
+        wa.label ?? "—",
+        wa.phoneNumber,
+        wa.status,
+        wa.healthScore,
+        wa.dailyMessages,
+        wa.monthlyMessages,
+      ]),
+      ["", ""],
       ["Tasks", ""],
       ["Title", "Status", "Priority", "Due Date", "Completed At"],
-      ...u.assignedTasks.map((t) => [
-        t.title, t.status, t.priority,
+      ...(u.assignedTasks || []).map((t) => [
+        t.title,
+        t.status,
+        t.priority,
         t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "—",
         t.completedAt ? new Date(t.completedAt).toLocaleDateString() : "—",
+      ]),
+      ["", ""],
+      ["AI Progress History", ""],
+      ["Period", "AI Score", "Productivity Score", "Recorded At"],
+      ...(u.aiProgress || []).map((p) => [
+        p.period,
+        p.aiScore,
+        p.productivityScore,
+        p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "—",
+      ]),
+      ["", ""],
+      ["Daily Activity Logs", ""],
+      ["Date", "Message Count"],
+      ...(u.activityLogs || []).map((log) => [
+        log.date ? new Date(log.date).toLocaleDateString() : "—",
+        log.messageCount,
+      ]),
+      ["", ""],
+      ["Remarks", ""],
+      ["Created By", "Role", "Content", "Date"],
+      ...(u.receivedRemarks || []).map((r) => [
+        r.createdBy?.fullName ?? "—",
+        r.createdBy?.role ?? "—",
+        r.content,
+        r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—",
       ]),
     ];
     const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
@@ -1051,205 +1225,174 @@ function UserDetailDrawer({ userId, onClose }: { userId: string; onClose: () => 
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            {/* Section Nav */}
-            <div className="flex gap-1 px-6 pt-4 pb-2 border-b border-slate-100 sticky top-0 bg-white z-10">
-              {["overview", "tasks", "ai-progress", "activity", "remarks"].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setActiveSection(s)}
-                  className={cn(
-                    "px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all capitalize",
-                    activeSection === s
-                      ? "bg-[#00C853] text-white shadow-sm"
-                      : "text-slate-600 hover:bg-slate-100"
-                  )}
-                >
-                  {s.replace("-", " ")}
-                </button>
-              ))}
-            </div>
-
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-8">
 
               {/* ── Overview ── */}
-              {activeSection === "overview" && (
-                <>
-                  {/* Profile Info */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Role</p>
-                      <Badge className={cn(
-                        "text-xs font-semibold",
-                        user!.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                      )}>{user!.role}</Badge>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Team</p>
-                      <p className="text-sm font-bold text-slate-800">{user!.teamName ?? "—"}</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</p>
-                      <Badge className={cn(
-                        "text-xs font-semibold",
-                        user!.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                      )}>{user!.status}</Badge>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Login</p>
-                      <p className="text-xs font-medium text-slate-700">
-                        {user!.lastLoginAt ? new Date(user!.lastLoginAt).toLocaleString() : "Never"}
-                      </p>
-                    </div>
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b pb-1.5 border-slate-100 dark:border-slate-800">
+                  Overview
+                </h3>
+                
+                {/* Profile Info */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Role</p>
+                    <Badge className={cn(
+                      "text-xs font-semibold",
+                      user!.role === "ADMIN" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                    )}>{user!.role}</Badge>
                   </div>
-
-                  {/* Summary Stats */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {[
-                      { label: "Today's Marketing", value: summary!.todayMessages, color: "text-[#00C853]", bg: "bg-emerald-50" },
-                      { label: "Monthly Marketing", value: summary!.monthlyMessages, color: "text-blue-600", bg: "bg-blue-50" },
-                      { label: "AI Score", value: `${summary!.latestAiScore}`, color: "text-purple-600", bg: "bg-purple-50" },
-                      { label: "Assigned Tasks", value: summary!.totalAssigned, color: "text-amber-600", bg: "bg-amber-50" },
-                      { label: "Completed Tasks", value: summary!.totalCompleted, color: "text-emerald-600", bg: "bg-emerald-50" },
-                      { label: "Completion Rate", value: `${summary!.completionRate}%`, color: "text-indigo-600", bg: "bg-indigo-50" },
-                    ].map((s) => (
-                      <div key={s.label} className={cn("rounded-xl p-4 border border-slate-200", s.bg)}>
-                        <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-1">{s.label}</p>
-                        <p className={cn("text-2xl font-bold", s.color)}>{s.value}</p>
-                      </div>
-                    ))}
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Team</p>
+                    <p className="text-sm font-bold text-slate-800">{user!.teamName ?? "—"}</p>
                   </div>
-
-                  {/* WhatsApp Status */}
-                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
-                    <p className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-2">
-                      <Wifi className="h-4 w-4 text-[#00C853]" /> WhatsApp Account Health
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Status</p>
+                    <Badge className={cn(
+                      "text-xs font-semibold",
+                      user!.status === "ACTIVE" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                    )}>{user!.status}</Badge>
+                  </div>
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Last Login</p>
+                    <p className="text-xs font-medium text-slate-700">
+                      {user!.lastLoginAt ? new Date(user!.lastLoginAt).toLocaleString() : "Never"}
                     </p>
-                    {summary!.whatsAppHealth ? (
-                      <div className="flex items-center justify-between">
-                        <WhatsAppBadge status={summary!.whatsAppHealth} score={summary!.whatsAppHealthScore} />
-                        <div className="text-right">
-                          <p className="text-xs text-slate-600">Health Score</p>
-                          <p className={cn(
-                            "text-xl font-bold",
-                            (summary!.whatsAppHealthScore ?? 0) >= 80 ? "text-emerald-600" :
-                            (summary!.whatsAppHealthScore ?? 0) >= 50 ? "text-amber-600" : "text-red-600"
-                          )}>{summary!.whatsAppHealthScore ?? 0}/100</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-500">No WhatsApp account linked</p>
-                    )}
                   </div>
+                </div>
 
-                  {/* Activity Chart */}
-                  {chartData.length > 0 && (
-                    <div>
-                      <p className="text-xs font-bold text-slate-700 mb-3">Daily Marketing Activity</p>
-                      <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                            <defs>
-                              <linearGradient id="drawerGrad" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#00C853" stopOpacity={0.4} />
-                                <stop offset="100%" stopColor="#00C853" stopOpacity={0} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid strokeDasharray="2 6" stroke="rgba(0,0,0,0.07)" vertical={false} />
-                            <XAxis
-                              dataKey="date"
-                              fontSize={8}
-                              stroke="rgba(0,0,0,0.4)"
-                              tickLine={false}
-                              axisLine={false}
-                              tickFormatter={(v) => new Date(v).toLocaleDateString("en", { month: "short", day: "numeric" })}
-                            />
-                            <YAxis fontSize={8} stroke="rgba(0,0,0,0.4)" tickLine={false} axisLine={false} />
-                            <Tooltip
-                              contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "11px" }}
-                              labelFormatter={(v) => new Date(v).toLocaleDateString()}
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="messageCount"
-                              name="Messages"
-                              stroke="#00C853"
-                              strokeWidth={2}
-                              fill="url(#drawerGrad)"
-                              dot={false}
-                              activeDot={{ r: 3, fill: "#00C853", stroke: "#fff", strokeWidth: 2 }}
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* ── Tasks ── */}
-              {activeSection === "tasks" && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-bold text-slate-800">Assigned Tasks ({user!.assignedTasks.length})</p>
-                    <div className="flex gap-2 text-xs">
-                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-semibold">{summary!.totalCompleted} done</span>
-                      <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">{summary!.totalPending} pending</span>
-                    </div>
-                  </div>
-                  {user!.assignedTasks.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-8">No tasks assigned</p>
-                  )}
-                  {user!.assignedTasks.map((task) => (
-                    <div key={task.id} className="border border-slate-200 rounded-xl p-3 hover:border-[#00C853] hover:shadow-sm transition-all">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className="text-xs font-semibold text-slate-800">{task.title}</p>
-                          {task.category && <p className="text-[10px] text-slate-500 mt-0.5">{task.category}</p>}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <Badge className={cn(
-                            "text-[9px] font-semibold",
-                            task.status === "COMPLETED" && "bg-emerald-100 text-emerald-700",
-                            task.status === "IN_PROGRESS" && "bg-blue-100 text-blue-700",
-                            task.status === "TODO" && "bg-slate-100 text-slate-600",
-                            task.status === "BLOCKED" && "bg-red-100 text-red-700",
-                          )}>{task.status.replace("_", " ")}</Badge>
-                          <Badge className={cn(
-                            "text-[9px] font-semibold",
-                            task.priority === "URGENT" && "bg-red-100 text-red-700",
-                            task.priority === "HIGH" && "bg-orange-100 text-orange-700",
-                            task.priority === "MEDIUM" && "bg-amber-100 text-amber-700",
-                            task.priority === "LOW" && "bg-slate-100 text-slate-600",
-                          )}>{task.priority}</Badge>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-500">
-                        {task.dueDate && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            Due: {new Date(task.dueDate).toLocaleDateString()}
-                          </span>
-                        )}
-                        {task.completedAt && (
-                          <span className="flex items-center gap-1 text-emerald-600">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Done: {new Date(task.completedAt).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
+                {/* Summary Stats */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    { label: "Today's Marketing", value: summary!.todayMessages, color: "text-[#00C853]", bg: "bg-emerald-50" },
+                    { label: "Monthly Marketing", value: summary!.monthlyMessages, color: "text-blue-600", bg: "bg-blue-50" },
+                    { label: "AI Score", value: `${summary!.latestAiScore}`, color: "text-purple-600", bg: "bg-purple-50" },
+                    { label: "Assigned Tasks", value: summary!.totalAssigned, color: "text-amber-600", bg: "bg-amber-50" },
+                    { label: "Completed Tasks", value: summary!.totalCompleted, color: "text-emerald-600", bg: "bg-emerald-50" },
+                    { label: "Completion Rate", value: `${summary!.completionRate}%`, color: "text-indigo-600", bg: "bg-indigo-50" },
+                  ].map((s) => (
+                    <div key={s.label} className={cn("rounded-xl p-4 border border-slate-200", s.bg)}>
+                      <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide mb-1">{s.label}</p>
+                      <p className={cn("text-2xl font-bold", s.color)}>{s.value}</p>
                     </div>
                   ))}
                 </div>
-              )}
+
+                {/* WhatsApp Numbers — per-account breakdown */}
+                <WhatsAppNumbersList accounts={user!.whatsAppAccounts} />
+
+                {/* Activity Chart */}
+                {chartData.length > 0 && (
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 mb-3">Daily Marketing Activity</p>
+                    <div className="h-40">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="drawerGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#00C853" stopOpacity={0.4} />
+                              <stop offset="100%" stopColor="#00C853" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="2 6" stroke="rgba(0,0,0,0.07)" vertical={false} />
+                          <XAxis
+                            dataKey="date"
+                            fontSize={8}
+                            stroke="rgba(0,0,0,0.4)"
+                            tickLine={false}
+                            axisLine={false}
+                            tickFormatter={(v) => new Date(v).toLocaleDateString("en", { month: "short", day: "numeric" })}
+                          />
+                          <YAxis fontSize={8} stroke="rgba(0,0,0,0.4)" tickLine={false} axisLine={false} />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: "8px", fontSize: "11px" }}
+                            labelFormatter={(v) => new Date(v).toLocaleDateString()}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="messageCount"
+                            name="Messages"
+                            stroke="#00C853"
+                            strokeWidth={2}
+                            fill="url(#drawerGrad)"
+                            dot={false}
+                            activeDot={{ r: 3, fill: "#00C853", stroke: "#fff", strokeWidth: 2 }}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── Tasks ── */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b pb-1.5 border-slate-100 dark:border-slate-800">
+                  <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    Assigned Tasks ({user!.assignedTasks.length})
+                  </h3>
+                  <div className="flex gap-2 text-[10px]">
+                    <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-semibold">{summary!.totalCompleted} done</span>
+                    <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full font-semibold">{summary!.totalPending} pending</span>
+                  </div>
+                </div>
+                {user!.assignedTasks.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No tasks assigned</p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {user!.assignedTasks.map((task) => (
+                      <div key={task.id} className="border border-slate-200 rounded-xl p-3 hover:border-[#00C853] hover:shadow-sm transition-all bg-white">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <p className="text-xs font-semibold text-slate-800">{task.title}</p>
+                            {task.category && <p className="text-[10px] text-slate-500 mt-0.5">{task.category}</p>}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Badge className={cn(
+                              "text-[9px] font-semibold",
+                              task.status === "COMPLETED" && "bg-emerald-100 text-emerald-700",
+                              task.status === "IN_PROGRESS" && "bg-blue-100 text-blue-700",
+                              task.status === "TODO" && "bg-slate-100 text-slate-600",
+                              task.status === "BLOCKED" && "bg-red-100 text-red-700",
+                            )}>{task.status.replace("_", " ")}</Badge>
+                            <Badge className={cn(
+                              "text-[9px] font-semibold",
+                              task.priority === "URGENT" && "bg-red-100 text-red-700",
+                              task.priority === "HIGH" && "bg-orange-100 text-orange-700",
+                              task.priority === "MEDIUM" && "bg-amber-100 text-amber-700",
+                              task.priority === "LOW" && "bg-slate-100 text-slate-600",
+                            )}>{task.priority}</Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-500">
+                          {task.dueDate && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              Due: {new Date(task.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
+                          {task.completedAt && (
+                            <span className="flex items-center gap-1 text-emerald-600">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Done: {new Date(task.completedAt).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* ── AI Progress ── */}
-              {activeSection === "ai-progress" && (
-                <div className="space-y-3">
-                  <p className="text-sm font-bold text-slate-800">AI Score History</p>
-                  {user!.aiProgress.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-8">No AI score data available</p>
-                  )}
-                  {user!.aiProgress.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b pb-1.5 border-slate-100 dark:border-slate-800">
+                  AI Score & Productivity History
+                </h3>
+                {user!.aiProgress.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No AI score data available</p>
+                ) : (
+                  <>
                     <div className="h-40 mb-4">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={user!.aiProgress.slice().reverse()} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
@@ -1262,74 +1405,82 @@ function UserDetailDrawer({ userId, onClose }: { userId: string; onClose: () => 
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
-                  )}
-                  {user!.aiProgress.map((p) => (
-                    <div key={p.id} className="border border-slate-200 rounded-xl p-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-semibold text-slate-700">{p.period}</p>
-                        <p className="text-[10px] text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-center">
-                          <p className="text-[10px] text-purple-600 font-semibold">AI Score</p>
-                          <p className="text-base font-bold text-purple-700">{p.aiScore.toFixed(1)}</p>
+                    <div className="grid gap-2 md:grid-cols-2 max-h-48 overflow-y-auto pr-1">
+                      {user!.aiProgress.map((p) => (
+                        <div key={p.id} className="border border-slate-200 rounded-xl p-3 flex items-center justify-between bg-white">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-700">{p.period}</p>
+                            <p className="text-[10px] text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-center">
+                              <p className="text-[10px] text-purple-600 font-semibold">AI Score</p>
+                              <p className="text-base font-bold text-purple-700">{p.aiScore.toFixed(1)}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-[10px] text-emerald-600 font-semibold">Productivity</p>
+                              <p className="text-base font-bold text-emerald-700">{p.productivityScore.toFixed(1)}</p>
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <p className="text-[10px] text-emerald-600 font-semibold">Productivity</p>
-                          <p className="text-base font-bold text-emerald-700">{p.productivityScore.toFixed(1)}</p>
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
+                  </>
+                )}
+              </div>
 
               {/* ── Activity Log ── */}
-              {activeSection === "activity" && (
-                <div className="space-y-2">
-                  <p className="text-sm font-bold text-slate-800">Recent Audit Activity ({user!.auditLogs.length})</p>
-                  {user!.auditLogs.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-8">No audit activity found</p>
-                  )}
-                  {user!.auditLogs.map((log) => (
-                    <div key={log.id} className="border border-slate-100 rounded-lg px-3 py-2 flex items-center justify-between hover:border-slate-300 transition-all">
-                      <div>
-                        <Badge className={cn(
-                          "text-[9px] font-semibold mb-0.5",
-                          log.action.includes("create") && "bg-emerald-100 text-emerald-700",
-                          log.action.includes("update") && "bg-blue-100 text-blue-700",
-                          log.action.includes("delete") && "bg-red-100 text-red-700",
-                          log.action.includes("login") && "bg-teal-100 text-teal-700",
-                          !log.action.includes("create") && !log.action.includes("update") && !log.action.includes("delete") && !log.action.includes("login") && "bg-slate-100 text-slate-700",
-                        )}>{log.action}</Badge>
-                        <p className="text-[10px] text-slate-500">{log.entity}</p>
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b pb-1.5 border-slate-100 dark:border-slate-800">
+                  Recent Audit Activity ({user!.auditLogs.length})
+                </h3>
+                {user!.auditLogs.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No audit activity found</p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {user!.auditLogs.map((log) => (
+                      <div key={log.id} className="border border-slate-100 rounded-lg px-3 py-2 flex items-center justify-between hover:border-slate-300 transition-all bg-slate-50/50">
+                        <div>
+                          <Badge className={cn(
+                            "text-[9px] font-semibold mb-0.5",
+                            log.action.includes("create") && "bg-emerald-100 text-emerald-700",
+                            log.action.includes("update") && "bg-blue-100 text-blue-700",
+                            log.action.includes("delete") && "bg-red-100 text-red-700",
+                            log.action.includes("login") && "bg-teal-100 text-teal-700",
+                            !log.action.includes("create") && !log.action.includes("update") && !log.action.includes("delete") && !log.action.includes("login") && "bg-slate-100 text-slate-700",
+                          )}>{log.action}</Badge>
+                          <p className="text-[10px] text-slate-500">{log.entity}</p>
+                        </div>
+                        <p className="text-[10px] text-slate-400">{new Date(log.createdAt).toLocaleString()}</p>
                       </div>
-                      <p className="text-[10px] text-slate-400">{new Date(log.createdAt).toLocaleString()}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* ── Remarks ── */}
-              {activeSection === "remarks" && (
-                <div className="space-y-3">
-                  <p className="text-sm font-bold text-slate-800">Admin Remarks ({user!.receivedRemarks.length})</p>
-                  {user!.receivedRemarks.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-8">No remarks found</p>
-                  )}
-                  {user!.receivedRemarks.map((r) => (
-                    <div key={r.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50">
-                      <p className="text-xs text-slate-700 leading-relaxed mb-2">{r.content}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-500">
-                          By {r.createdBy.fullName} ({r.createdBy.role})
-                        </span>
-                        <span className="text-[10px] text-slate-400">{new Date(r.createdAt).toLocaleDateString()}</span>
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider border-b pb-1.5 border-slate-100 dark:border-slate-800">
+                  Admin Remarks ({user!.receivedRemarks.length})
+                </h3>
+                {user!.receivedRemarks.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-4">No remarks found</p>
+                ) : (
+                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    {user!.receivedRemarks.map((r) => (
+                      <div key={r.id} className="border border-slate-200 rounded-xl p-4 bg-slate-50">
+                        <p className="text-xs text-slate-700 leading-relaxed mb-2">{r.content}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-500">
+                            By {r.createdBy.fullName} ({r.createdBy.role})
+                          </span>
+                          <span className="text-[10px] text-slate-400">{new Date(r.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
 
             </div>
           </div>

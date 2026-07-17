@@ -91,8 +91,8 @@ export async function GET(request: NextRequest) {
         }
       }),
 
-      // WhatsApp statuses
-      prisma.whatsAppStatus.findMany({
+      // WhatsApp accounts (all in system)
+      prisma.whatsAppAccount.findMany({
         select: {
           status: true,
           healthScore: true,
@@ -196,8 +196,8 @@ export async function GET(request: NextRequest) {
         }
       }),
 
-      // User's WhatsApp status
-      prisma.whatsAppStatus.findUnique({
+      // User's WhatsApp accounts
+      prisma.whatsAppAccount.findMany({
         where: {
           userId: session.id
         }
@@ -227,14 +227,28 @@ export async function GET(request: NextRequest) {
     const todayMessages = todayActivity?.dailyMessagesSent || 0;
     const targetProgress = Math.min((todayMessages / dailyTarget) * 100, 100);
 
+    // Aggregate across all WhatsApp accounts for this user
+    const userWhatsAppAccounts = userWhatsAppStatus as Array<{ status: string; healthScore: number; dailyMessages: number; monthlyMessages: number }>;
+    const combinedDailyMessages = userWhatsAppAccounts.reduce((sum, acc) => sum + acc.dailyMessages, 0);
+    const combinedMonthlyMessages = userWhatsAppAccounts.reduce((sum, acc) => sum + acc.monthlyMessages, 0);
+    const avgHealthScore = userWhatsAppAccounts.length > 0
+      ? Math.round(userWhatsAppAccounts.reduce((sum, acc) => sum + acc.healthScore, 0) / userWhatsAppAccounts.length)
+      : 94;
+    // Pick the worst status (BANNED > LIMITED > WARNING > ACTIVE)
+    const statusPriority = { BANNED: 4, LIMITED: 3, WARNING: 2, ACTIVE: 1 };
+    const worstStatus = userWhatsAppAccounts.reduce((worst, acc) => {
+      const p = statusPriority[acc.status as keyof typeof statusPriority] ?? 0;
+      return p > (statusPriority[worst as keyof typeof statusPriority] ?? 0) ? acc.status : worst;
+    }, "ACTIVE");
+
     const stats = {
       todayTarget: { value: dailyTarget.toString(), trend: `${Math.round(targetProgress)}%`, progress: targetProgress },
-      todayMessages: { value: todayMessages.toString(), trend: "+12%", progress: targetProgress },
-      monthlyMessages: { value: thisMonthMessages.toLocaleString(), trend: "+18%", progress: Math.min((thisMonthMessages / 3500) * 100, 100) },
+      todayMessages: { value: (todayMessages + combinedDailyMessages).toString(), trend: "+12%", progress: targetProgress },
+      monthlyMessages: { value: (thisMonthMessages + combinedMonthlyMessages).toLocaleString(), trend: "+18%", progress: Math.min(((thisMonthMessages + combinedMonthlyMessages) / 3500) * 100, 100) },
       assignedTasks: { value: userTasks.length.toString(), trend: `+${userTasks.length - completedUserTasks}`, progress: Math.min((userTasks.length / 25) * 100, 100) },
       completedTasks: { value: completedUserTasks.toString(), trend: "+6", progress: userTasks.length > 0 ? (completedUserTasks / userTasks.length) * 100 : 0 },
       aiScore: { value: `${Math.round(userAIProgress?.aiScore || 85)}%`, trend: "+7%", progress: userAIProgress?.aiScore || 85 },
-      whatsAppStatus: { value: userWhatsAppStatus?.status || "Active", trend: `${userWhatsAppStatus?.healthScore || 94}%`, progress: userWhatsAppStatus?.healthScore || 94 },
+      whatsAppStatus: { value: worstStatus, trend: `${avgHealthScore}%`, progress: avgHealthScore },
       calendarEvents: { value: userCalendarEvents.toString(), trend: userCalendarEvents > 0 ? `${userCalendarEvents} today` : "2 today", progress: Math.min(userCalendarEvents * 20, 100) },
       performance: { value: "A+", trend: "+2 levels", progress: 95 },
       conversionRate: { value: `${(todayActivity?.successRate || 6.8).toFixed(1)}%`, trend: "+1.2%", progress: (todayActivity?.successRate || 6.8) * 10 }

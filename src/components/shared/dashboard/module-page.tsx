@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import NextLink from "next/link";
+import { cn } from "@/lib/shared/utils";
 import { 
   Download, Filter, Plus, Search, RefreshCw, Calendar, Activity, 
   CheckCircle2, Mail, MessageSquare, Phone, Share2, Sparkles, Clock, 
-  Target, Bot, User, Lock, Users, CreditCard, Link, Shield, Bell, Settings 
+  Target, Bot, User, Lock, Users, CreditCard, Link, Shield, Bell, Settings,
+  ArrowLeft, Smartphone, Wifi, WifiOff, XCircle, AlertCircle, Loader2
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,9 +27,72 @@ type ModulePageProps = {
   detailId?: string;
 };
 
+interface WhatsAppAccount {
+  id: string;
+  phoneNumber: string;
+  label: string | null;
+  status: "ACTIVE" | "WARNING" | "LIMITED" | "BANNED";
+  healthScore: number;
+  dailyMessages: number;
+  monthlyMessages: number;
+  createdAt: string;
+}
+
+interface UserDetailPayload {
+  id: string;
+  fullName: string;
+  email: string;
+  role: "ADMIN" | "USER";
+  status: "ACTIVE" | "DISABLED";
+  teamName: string | null;
+  createdAt: string;
+  lastLoginAt: string | null;
+  whatsAppAccounts: WhatsAppAccount[];
+  aiProgress: Array<{
+    id: string;
+    aiScore: number;
+    productivityScore: number;
+    period: string;
+    createdAt: string;
+  }>;
+  assignedTasks: Array<{
+    id: string;
+    title: string;
+    status: string;
+    priority: string;
+    dueDate: string | null;
+    completedAt: string | null;
+  }>;
+}
+
 export function ModulePage({ moduleKey, role, detailId }: ModulePageProps) {
   const [activeTab, setActiveTab] = useState("default");
   const { showToast } = useToast();
+
+  const [userData, setUserData] = useState<UserDetailPayload | null>(null);
+  const [userLoading, setUserLoading] = useState(true);
+  const [userError, setUserError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (moduleKey === "users" && detailId) {
+      setUserLoading(true);
+      setUserError(null);
+      fetch(`/api/admin/users/${detailId}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("Failed to load user details.");
+          return res.json();
+        })
+        .then((data) => {
+          setUserData(data.user);
+          setUserLoading(false);
+        })
+        .catch((err) => {
+          console.error(err);
+          setUserError(err.message || "An error occurred");
+          setUserLoading(false);
+        });
+    }
+  }, [moduleKey, detailId]);
 
   const handleExport = (format: string) => {
     showToast({
@@ -507,6 +573,311 @@ export function ModulePage({ moduleKey, role, detailId }: ModulePageProps) {
               </Card>
             </TabsContent>
           </Tabs>
+        </div>
+      </div>
+    );
+  }
+
+  if (moduleKey === "users" && detailId) {
+    if (userLoading) {
+      return (
+        <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 flex items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <Loader2 className="h-8 w-8 text-[#00C853] animate-spin" />
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Loading user profile...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (userError || !userData) {
+      return (
+        <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 flex items-center justify-center p-6">
+          <Card className="max-w-md w-full border-red-150 dark:border-red-900 bg-white dark:bg-slate-900 shadow-lg">
+            <CardHeader className="text-center pb-2">
+              <AlertCircle className="h-10 w-10 text-red-500 mx-auto mb-2" />
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-white">Failed to load details</CardTitle>
+              <CardDescription className="text-xs text-slate-500">{userError || "User details could not be found."}</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-4 flex justify-center">
+              <NextLink href="/admin/users" passHref legacyBehavior>
+                <Button className="bg-[#143D2C] hover:bg-[#143D2C]/90 text-white text-xs h-8 px-4 font-bold flex items-center gap-1.5">
+                  <ArrowLeft className="h-3.5 w-3.5" /> Back to Users List
+                </Button>
+              </NextLink>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    const { fullName, email, role: userRole, status: userStatus, teamName, createdAt, lastLoginAt, whatsAppAccounts, aiProgress, assignedTasks } = userData;
+
+    // Aggregates
+    const totalAccounts = whatsAppAccounts.length;
+    const activeAccounts = whatsAppAccounts.filter(a => a.status === "ACTIVE").length;
+    
+    // Pick the worst status (BANNED > LIMITED > WARNING > ACTIVE)
+    const statusPriority = { BANNED: 4, LIMITED: 3, WARNING: 2, ACTIVE: 1 };
+    const worstStatus = whatsAppAccounts.reduce((worst, acc) => {
+      const p = statusPriority[acc.status as keyof typeof statusPriority] ?? 0;
+      return p > (statusPriority[worst as keyof typeof statusPriority] ?? 0) ? acc.status : worst;
+    }, "ACTIVE");
+
+    const averageHealth = totalAccounts > 0
+      ? Math.round(whatsAppAccounts.reduce((sum, a) => sum + a.healthScore, 0) / totalAccounts)
+      : null;
+
+    const latestAiProgress = aiProgress[0];
+    const completedTasksCount = assignedTasks.filter(t => t.status === "COMPLETED").length;
+    const totalTasksCount = assignedTasks.length;
+
+    // Status styling helpers
+    const statusBadgeStyle: Record<string, string> = {
+      ACTIVE: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-255",
+      WARNING: "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-200",
+      LIMITED: "bg-orange-100 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-200",
+      BANNED: "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200",
+      DISABLED: "bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400 border-red-200",
+    };
+
+    return (
+      <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950 p-6 space-y-6 animate-fade-in">
+        <div className="max-w-7xl mx-auto space-y-6">
+          
+          {/* Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center gap-4">
+              <NextLink href="/admin/users" passHref legacyBehavior>
+                <Button size="icon" variant="secondary" className="h-9 w-9 rounded-xl text-slate-500 hover:text-slate-800 border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm transition-all duration-200 hover:scale-105">
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              </NextLink>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{fullName}</h1>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 border rounded-full capitalize ${userRole === "ADMIN" ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-blue-100 text-blue-700 border-blue-200"}`}>
+                    {userRole}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 border rounded-full capitalize ${statusBadgeStyle[userStatus]}`}>
+                    {userStatus}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">{email} &middot; Team: <span className="font-semibold text-slate-855 dark:text-slate-200">{teamName || "Unassigned"}</span></p>
+              </div>
+            </div>
+
+            <div className="text-left md:text-right text-[10px] text-slate-400 font-medium space-y-0.5">
+              <p>Registered: {new Date(createdAt).toLocaleDateString()}</p>
+              <p>Last login: {lastLoginAt ? new Date(lastLoginAt).toLocaleString() : "Never"}</p>
+            </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            {/* WhatsApp Accounts Stats */}
+            <Card className="shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Smartphone className="h-3.5 w-3.5 text-[#00C853]" /> Tracked Numbers
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 pt-1">
+                <p className="text-2xl font-black text-slate-800 dark:text-white">{totalAccounts}</p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">{activeAccounts} active numbers</p>
+              </CardContent>
+            </Card>
+
+            {/* Combined WhatsApp Health */}
+            <Card className="shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Wifi className="h-3.5 w-3.5 text-[#00C853]" /> Combined Health
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 pt-1">
+                <p className={cn(
+                  "text-2xl font-black",
+                  averageHealth === null ? "text-slate-400" :
+                  averageHealth >= 80 ? "text-emerald-600" :
+                  averageHealth >= 60 ? "text-amber-500" : "text-red-500"
+                )}>
+                  {averageHealth !== null ? `${averageHealth}%` : "N/A"}
+                </p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">Status: <span className="font-bold">{totalAccounts > 0 ? worstStatus : "None"}</span></p>
+              </CardContent>
+            </Card>
+
+            {/* AI Insight Progress */}
+            <Card className="shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-500" /> AI Marketing Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 pt-1">
+                <p className="text-2xl font-black text-indigo-650 dark:text-indigo-455">
+                  {latestAiProgress ? `${Math.round(latestAiProgress.aiScore)}%` : "85%"}
+                </p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">Productivity: {latestAiProgress ? `${Math.round(latestAiProgress.productivityScore)}%` : "80%"}</p>
+              </CardContent>
+            </Card>
+
+            {/* Task Completion Rate */}
+            <Card className="shadow-sm border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <CardHeader className="pb-1 pt-4 px-4">
+                <CardTitle className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 text-amber-550" /> Task Completion
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 pt-1">
+                <p className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                  {totalTasksCount > 0 ? `${Math.round((completedTasksCount / totalTasksCount) * 100)}%` : "100%"}
+                </p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">{completedTasksCount} of {totalTasksCount} tasks done</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Details Section */}
+          <Tabs defaultValue="whatsapp" className="space-y-6">
+            <TabsList className="flex p-1 bg-slate-105 dark:bg-slate-800 rounded-xl max-w-sm">
+              <TabsTrigger value="whatsapp" className="flex-1 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-1">
+                <Smartphone className="h-3.5 w-3.5" /> WhatsApp Accounts
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="flex-1 py-2 px-3 text-xs font-semibold rounded-lg flex items-center justify-center gap-1">
+                <Target className="h-3.5 w-3.5" /> Tasks
+              </TabsTrigger>
+            </TabsList>
+
+            {/* WhatsApp Accounts List Tab */}
+            <TabsContent value="whatsapp" className="space-y-6 animate-fade-up">
+              <Card className="shadow-sm border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2 pt-4 px-4 border-b border-slate-100 dark:border-slate-800">
+                  <CardTitle className="text-sm font-bold text-slate-800 dark:text-white">Registered WhatsApp Numbers</CardTitle>
+                  <CardDescription className="text-[10px] text-slate-400">Active monitoring channels for outbound messages</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {whatsAppAccounts.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 dark:text-slate-500">
+                      <Smartphone className="h-10 w-10 mx-auto mb-2 opacity-35 text-slate-400" />
+                      <p className="text-xs font-bold">No WhatsApp Accounts Linked</p>
+                      <p className="text-[10px] mt-0.5">The user has not added any WhatsApp phone numbers to their account.</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {whatsAppAccounts.map((account) => (
+                        <div key={account.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/10 transition-colors">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-slate-800 dark:text-white">{account.phoneNumber}</span>
+                              {account.label && (
+                                <Badge tone="default" className="text-[9px] px-1.5 py-0 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                  {account.label}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-[10px] text-slate-400 font-medium">
+                              <span>Added {new Date(account.createdAt).toLocaleDateString()}</span>
+                              <span>Status: <span className={cn("font-bold", account.status === "ACTIVE" ? "text-emerald-600" : "text-amber-500")}>{account.status}</span></span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-6">
+                            
+                            {/* Message Stats */}
+                            <div className="flex gap-4 text-center">
+                              <div className="min-w-20">
+                                <p className="text-[9px] text-slate-400 font-semibold uppercase">Daily Sent</p>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{account.dailyMessages}</p>
+                              </div>
+                              <div className="min-w-20">
+                                <p className="text-[9px] text-slate-400 font-semibold uppercase">Monthly Sent</p>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200">{account.monthlyMessages}</p>
+                              </div>
+                            </div>
+
+                            {/* Health Indicator */}
+                            <div className="min-w-28 space-y-1">
+                              <div className="flex justify-between items-center text-[9px] font-bold text-slate-500">
+                                <span>Health Score</span>
+                                <span className={cn(
+                                  account.healthScore >= 80 ? "text-emerald-600" :
+                                  account.healthScore >= 60 ? "text-amber-500" : "text-red-500"
+                                )}>{account.healthScore}%</span>
+                              </div>
+                              <Progress value={account.healthScore} className="h-1.5" />
+                            </div>
+
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tasks Tab */}
+            <TabsContent value="tasks" className="space-y-6 animate-fade-up">
+              <Card className="shadow-sm border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900">
+                <CardHeader className="pb-2 pt-4 px-4 border-b border-slate-100 dark:border-slate-800">
+                  <CardTitle className="text-sm font-bold text-slate-800 dark:text-white">Assigned Tasks</CardTitle>
+                  <CardDescription className="text-[10px] text-slate-400">All marketing workflow tasks assigned to this team member</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {assignedTasks.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 dark:text-slate-500">
+                      <Target className="h-10 w-10 mx-auto mb-2 opacity-35 text-slate-400" />
+                      <p className="text-xs font-bold">No Tasks Assigned</p>
+                      <p className="text-[10px] mt-0.5">There are no workflow tasks assigned to this user.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-100 dark:border-slate-800">
+                          <tr>
+                            <th className="px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[9px]">Task Name</th>
+                            <th className="px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[9px]">Priority</th>
+                            <th className="px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[9px]">Status</th>
+                            <th className="px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[9px]">Due Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {assignedTasks.map((task) => (
+                            <tr key={task.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/10">
+                              <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">{task.title}</td>
+                              <td className="px-4 py-3">
+                                <span className={cn(
+                                  "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                                  task.priority === "HIGH" ? "bg-red-50 text-red-650" :
+                                  task.priority === "MEDIUM" ? "bg-amber-50 text-amber-650" : "bg-blue-50 text-blue-650"
+                                )}>
+                                  {task.priority}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <span className={cn(
+                                  "text-[9px] font-bold px-1.5 py-0.5 rounded-full border",
+                                  task.status === "COMPLETED" ? "bg-emerald-50 text-emerald-700 border-emerald-250" :
+                                  task.status === "IN_PROGRESS" ? "bg-blue-50 text-blue-700 border-blue-205" : "bg-slate-50 text-slate-500 border-slate-200"
+                                )}>
+                                  {task.status.replace("_", " ")}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-slate-500">{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No deadline"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+
         </div>
       </div>
     );

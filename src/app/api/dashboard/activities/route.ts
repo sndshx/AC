@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
       }
 
       formattedActivities.push({
-        user: task.assignedTo.fullName,
+        user: task.assignedTo?.fullName ?? "Unassigned",
         action: `${action}: ${task.title}`,
         time: timeAgo,
         type

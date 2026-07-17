@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       teamFilter !== "all" ? { teamName: teamFilter } : {},
       roleFilter === "ADMIN" || roleFilter === "USER" ? { role: roleFilter } : {},
       whatsAppFilter !== "all"
-        ? { whatsAppStatus: { status: whatsAppFilter } }
+        ? { whatsAppAccounts: { some: { status: whatsAppFilter } } }
         : {},
     ],
   };
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
         teamName: true,
         createdAt: true,
         lastLoginAt: true,
-        whatsAppStatus: {
+        whatsAppAccounts: {
           select: {
             status: true,
             healthScore: true,
@@ -109,11 +109,23 @@ export async function GET(request: NextRequest) {
     ).length;
 
     const todayMarketing =
-      u.whatsAppStatus?.dailyMessages ??
+      u.whatsAppAccounts.reduce((s, a) => s + a.dailyMessages, 0) ||
       u.activityLogs.reduce((s, l) => s + l.messageCount, 0);
 
-    const monthlyMarketing = u.whatsAppStatus?.monthlyMessages ?? 0;
+    const monthlyMarketing = u.whatsAppAccounts.reduce((s, a) => s + a.monthlyMessages, 0);
     const aiScore = u.aiProgress[0]?.aiScore ?? 0;
+
+    // Aggregate health: worst status, average score
+    const statusPriority = { BANNED: 4, LIMITED: 3, WARNING: 2, ACTIVE: 1 } as const;
+    const worstWaStatus = u.whatsAppAccounts.length > 0
+      ? u.whatsAppAccounts.reduce((worst, acc) => {
+          const p = statusPriority[acc.status as keyof typeof statusPriority] ?? 0;
+          return p > (statusPriority[worst as keyof typeof statusPriority] ?? 0) ? acc.status : worst;
+        }, "ACTIVE")
+      : null;
+    const avgWaHealthScore = u.whatsAppAccounts.length > 0
+      ? Math.round(u.whatsAppAccounts.reduce((sum, acc) => sum + acc.healthScore, 0) / u.whatsAppAccounts.length)
+      : null;
 
     return {
       id: u.id,
@@ -130,8 +142,8 @@ export async function GET(request: NextRequest) {
       completedTasks: completedCount,
       pendingTasks: pendingCount,
       aiScore: parseFloat(aiScore.toFixed(1)),
-      whatsAppStatus: u.whatsAppStatus?.status ?? null,
-      whatsAppHealthScore: u.whatsAppStatus?.healthScore ?? null,
+      whatsAppStatus: worstWaStatus,
+      whatsAppHealthScore: avgWaHealthScore,
     };
   });
 

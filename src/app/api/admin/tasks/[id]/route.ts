@@ -6,11 +6,12 @@ const prisma = new PrismaClient();
 // GET - Fetch single task
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const task = await prisma.marketingTask.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         assignedTo: {
           select: {
@@ -53,14 +54,15 @@ export async function GET(
 // PATCH - Update task
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const body = await request.json();
     const { title, description, status, priority, dueDate, assignedToId } = body;
 
     const existingTask = await prisma.marketingTask.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!existingTask) {
@@ -109,7 +111,7 @@ export async function PATCH(
     }
 
     const task = await prisma.marketingTask.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         assignedTo: {
@@ -147,11 +149,12 @@ export async function PATCH(
 // DELETE - Delete task
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const task = await prisma.marketingTask.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!task) {
@@ -162,7 +165,7 @@ export async function DELETE(
     }
 
     await prisma.marketingTask.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({

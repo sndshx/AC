@@ -105,10 +105,21 @@ export function AppShell({ role, children }: AppShellProps) {
   const [notifications, setNotifications] = useState<Notification[]>(sampleNotifications);
   const nav = role === "ADMIN" ? adminNav : userNav;
   const { sidebarOpen, setSidebarOpen, searchQuery, setSearchQuery } = useAppStore();
-  const title = useMemo(() => {
-    const active = nav.find((item) => pathname.startsWith(item.href));
-    return active?.label ?? "Dashboard";
+  const activeItem = useMemo(() => {
+    let bestMatch = null;
+    let longestLength = 0;
+    for (const item of nav) {
+      if (pathname.startsWith(item.href)) {
+        if (item.href.length > longestLength) {
+          longestLength = item.href.length;
+          bestMatch = item;
+        }
+      }
+    }
+    return bestMatch;
   }, [nav, pathname]);
+
+  const title = activeItem?.label ?? "Dashboard";
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -196,7 +207,7 @@ export function AppShell({ role, children }: AppShellProps) {
           </p>
         </div>
         {nav.map((item) => {
-          const active = pathname.startsWith(item.href);
+          const active = activeItem?.href === item.href;
           return (
             <Link
               key={item.href}

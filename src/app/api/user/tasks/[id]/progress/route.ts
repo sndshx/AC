@@ -6,8 +6,9 @@ const prisma = new PrismaClient();
 // POST - Update task progress
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const body = await request.json();
     const { userId, status, progress, comment } = body;
@@ -22,7 +23,7 @@ export async function POST(
     // Create progress update
     const progressUpdate = await prisma.taskProgress.create({
       data: {
-        taskId: params.id,
+        taskId: id,
         userId,
         status,
         progress: progress || 0,
@@ -33,7 +34,7 @@ export async function POST(
     // If status is COMPLETED, update task
     if (status === "COMPLETED") {
       await prisma.marketingTask.update({
-        where: { id: params.id },
+        where: { id },
         data: {
           status: "COMPLETED",
           completedAt: new Date(),
@@ -42,7 +43,7 @@ export async function POST(
 
       // Create notification
       const task = await prisma.marketingTask.findUnique({
-        where: { id: params.id },
+        where: { id },
         select: { title: true, createdById: true },
       });
 
@@ -59,7 +60,7 @@ export async function POST(
     } else {
       // Update task status if not completed
       await prisma.marketingTask.update({
-        where: { id: params.id },
+        where: { id },
         data: { status },
       });
     }

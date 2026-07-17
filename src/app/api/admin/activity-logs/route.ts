@@ -35,7 +35,24 @@ export async function GET(request: NextRequest) {
           select: {
             id: true,
             fullName: true,
-            email: true
+            email: true,
+            whatsAppAccounts: {
+              select: {
+                id: true,
+                phoneNumber: true,
+                label: true,
+                status: true,
+              },
+              orderBy: { monthlyMessages: "desc" }
+            }
+          }
+        },
+        whatsAppAccount: {
+          select: {
+            id: true,
+            phoneNumber: true,
+            label: true,
+            status: true,
           }
         }
       },

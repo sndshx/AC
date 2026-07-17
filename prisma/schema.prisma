@@ -68,7 +68,7 @@ model User {
   receivedRemarks Remark[]         @relation("ReceivedRemarks")
   createdRemarks  Remark[]         @relation("CreatedRemarks")
   aiProgress      AIProgress[]
-  whatsAppStatus  WhatsAppStatus?
+  whatsAppAccounts WhatsAppAccount[]
   notifications   Notification[]
   reports         Report[]         @relation("ReportOwner")
   generatedReports Report[]        @relation("ReportGenerator")
@@ -107,19 +107,21 @@ model Activity {
 }
 
 model ActivityLog {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date         DateTime @db.Date
-  messageCount Int      @default(0)
-  remarks      String?
-  aiProgress   String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String           @id @default(cuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date               DateTime         @db.Date
+  messageCount       Int              @default(0)
+  remarks            String?
+  aiProgress         String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  whatsAppAccountId  String?
+  whatsAppAccount    WhatsAppAccount? @relation(fields: [whatsAppAccountId], references: [id], onDelete: SetNull)
 
-  @@unique([userId, date])
   @@index([date])
   @@index([userId])
+  @@index([whatsAppAccountId])
 }
 
 model Team {
@@ -252,9 +254,11 @@ model AIProgress {
   @@index([userId, period])
 }
 
-model WhatsAppStatus {
+model WhatsAppAccount {
   id              String         @id @default(cuid())
-  userId          String         @unique
+  userId          String
+  phoneNumber     String         @unique
+  label           String?
   status          WhatsAppHealth @default(ACTIVE)
   healthScore     Int            @default(100)
   lastCheckedAt   DateTime       @default(now())
@@ -266,7 +270,9 @@ model WhatsAppStatus {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityLogs    ActivityLog[]
 
+  @@index([userId])
   @@index([status])
   @@index([healthScore])
 }

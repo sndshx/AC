@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   }
 
   const notifications = await prisma.notification.findMany({
-    where: { userId: session.userId },
+    where: { userId: session.id },
     orderBy: { createdAt: "desc" },
     take: 20,
   });
@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest) {
 
   if (body.markAllRead) {
     await prisma.notification.updateMany({
-      where: { userId: session.userId, readAt: null },
+      where: { userId: session.id, readAt: null },
       data: { readAt: now },
     });
     return NextResponse.json({ success: true });
@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest) {
 
   if (body.id) {
     await prisma.notification.updateMany({
-      where: { id: body.id, userId: session.userId },
+      where: { id: body.id, userId: session.id },
       data: { readAt: now },
     });
     return NextResponse.json({ success: true });

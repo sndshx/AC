@@ -22,13 +22,25 @@ export async function GET(request: NextRequest) {
         select: {
           fullName: true,
           email: true,
-          whatsAppStatus: { select: { status: true, healthScore: true } }
+          whatsAppAccounts: { select: { status: true, healthScore: true } }
         }
       }
     }
   });
 
-  const rows = activities.map((activity) => [
+  const rows = activities.map((activity) => {
+    const waAccounts = activity.user.whatsAppAccounts;
+    const statusPriority = { BANNED: 4, LIMITED: 3, WARNING: 2, ACTIVE: 1 } as const;
+    const worstWaStatus = waAccounts.length > 0
+      ? waAccounts.reduce((worst: string, acc: { status: string; healthScore: number }) => {
+          const p = statusPriority[acc.status as keyof typeof statusPriority] ?? 0;
+          return p > (statusPriority[worst as keyof typeof statusPriority] ?? 0) ? acc.status : worst;
+        }, "ACTIVE")
+      : "UNKNOWN";
+    const avgWaScore = waAccounts.length > 0
+      ? Math.round(waAccounts.reduce((sum: number, acc: { status: string; healthScore: number }) => sum + acc.healthScore, 0) / waAccounts.length)
+      : "";
+    return [
     activity.user.fullName,
     activity.user.email,
     activity.date.toISOString().slice(0, 10),
@@ -38,9 +50,10 @@ export async function GET(request: NextRequest) {
     activity.performanceScore,
     activity.productivity,
     activity.completionPercentage,
-    activity.user.whatsAppStatus?.status ?? "UNKNOWN",
-    activity.user.whatsAppStatus?.healthScore ?? ""
-  ]);
+    worstWaStatus,
+    avgWaScore
+    ];
+  });
 
   const header = [
     "User",

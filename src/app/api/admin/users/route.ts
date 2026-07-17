@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       teamName: true,
       createdAt: true,
       lastLoginAt: true,
-      whatsAppStatus: {
+      whatsAppAccounts: {
         select: {
           status: true,
           healthScore: true

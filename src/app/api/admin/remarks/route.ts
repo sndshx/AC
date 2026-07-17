@@ -1,17 +1,13 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/shared/auth";
-import { prisma } from "@/lib/shared/prisma";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/shared/auth";
+import { prisma } from "@/lib/shared/db";
 
 // GET - Fetch all remarks with user details
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const { error } = await requireAdmin(request);
+  if (error) return error;
+
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const remarks = await prisma.remark.findMany({
       include: {
         user: {
@@ -37,8 +33,8 @@ export async function GET() {
     });
 
     return NextResponse.json(remarks);
-  } catch (error) {
-    console.error("Error fetching remarks:", error);
+  } catch (err) {
+    console.error("Error fetching remarks:", err);
     return NextResponse.json(
       { error: "Failed to fetch remarks" },
       { status: 500 }
@@ -47,14 +43,11 @@ export async function GET() {
 }
 
 // POST - Create a new remark
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
+  const { session, error } = await requireAdmin(request);
+  if (error || !session) return error;
+
   try {
-    const session = await getServerSession(authOptions);
-
-    if (!session || session.user.role !== "ADMIN") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await request.json();
     const { userId, content } = body;
 
@@ -69,7 +62,7 @@ export async function POST(request: Request) {
       data: {
         userId,
         content,
-        createdById: session.user.id,
+        createdById: session.id,
       },
       include: {
         user: {
@@ -102,8 +95,8 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(remark, { status: 201 });
-  } catch (error) {
-    console.error("Error creating remark:", error);
+  } catch (err) {
+    console.error("Error creating remark:", err);
     return NextResponse.json(
       { error: "Failed to create remark" },
       { status: 500 }

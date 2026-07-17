@@ -4,8 +4,9 @@ import { getSessionFromRequest } from "@/lib/shared/auth";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getSessionFromRequest(req);
     
@@ -29,7 +30,7 @@ export async function PATCH(
     if (repliedAt) updateData.repliedAt = new Date(repliedAt);
 
     const chatMessage = await prisma.chatMessage.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
       include: {
         user: {
@@ -77,8 +78,9 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const session = await getSessionFromRequest(req);
     
@@ -90,7 +92,7 @@ export async function DELETE(
     }
 
     await prisma.chatMessage.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ message: "Chat message deleted successfully" });

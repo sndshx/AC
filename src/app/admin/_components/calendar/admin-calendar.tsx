@@ -365,7 +365,7 @@ export function AdminCalendar() {
               <div className="flex gap-3 pt-2">
                 {editForm.id && !editForm.id.startsWith('new-') && (
                   <Button
-                    variant="destructive"
+                    variant="danger"
                     className="flex-1"
                     onClick={() => {
                       handleDeleteEvent(editForm.id!);
