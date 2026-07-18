@@ -43,7 +43,20 @@ import {
   Target,
   Globe,
   MessageSquare,
-  Paperclip
+  Paperclip,
+  FileText,
+  File,
+  ExternalLink,
+  Download,
+  Image as ImageIcon,
+  TrendingUp,
+  User,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  Activity,
+  Shield,
+  Info
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -69,6 +82,49 @@ type Team = {
   };
 };
 
+type TaskProgressUpdate = {
+  id: string;
+  taskId: string;
+  userId: string;
+  status: "TODO" | "IN_PROGRESS" | "COMPLETED" | "BLOCKED";
+  progress: number;
+  comment: string | null;
+  createdAt: string;
+};
+
+type SubmissionFile = {
+  id: string;
+  submissionId: string;
+  fileName: string;
+  originalName: string;
+  mimeType: string;
+  fileSize: number;
+  fileUrl: string;
+  uploadedAt: string;
+};
+
+type Submission = {
+  id: string;
+  taskId: string;
+  userId: string;
+  workDescription: string | null;
+  remarks: string | null;
+  progress: number;
+  fileUrls: string[];
+  files: SubmissionFile[];
+  submittedAt: string;
+  status: "PENDING" | "APPROVED" | "NEEDS_REVISION" | "REJECTED";
+  adminRemark: string | null;
+  reviewedAt: string | null;
+  reviewedById: string | null;
+  user?: {
+    id: string;
+    fullName: string;
+    email: string;
+    avatarUrl?: string | null;
+  } | null;
+};
+
 type Task = {
   id: string;
   title: string;
@@ -83,11 +139,14 @@ type Task = {
   assignedToTeam: { id: string; name: string } | null;
   createdBy: User;
   remarks: string | null;
+  attachments: string[];
   createdAt: string;
   updatedAt: string;
   submissionNote?: string | null;
   submittedAt?: string | null;
   submittedFiles?: string[];
+  progressUpdates?: TaskProgressUpdate[];
+  submissions?: Submission[];
 };
 
 type TaskFormData = {
@@ -1095,18 +1154,127 @@ export function AdminTasks() {
   );
 }
 
-// Submission Summary Component with Expandable Details
-function SubmissionSummary({ task, formatDate }: { task: Task; formatDate: (date: string | null) => string }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+// Helper: detect file type from URL/extension
+function getFileType(url: string): 'image' | 'pdf' | 'doc' | 'spreadsheet' | 'video' | 'other' {
+  const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'avif'].includes(ext)) return 'image';
+  if (ext === 'pdf') return 'pdf';
+  if (['doc', 'docx', 'odt', 'rtf', 'txt'].includes(ext)) return 'doc';
+  if (['xls', 'xlsx', 'csv', 'ods'].includes(ext)) return 'spreadsheet';
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return 'video';
+  return 'other';
+}
 
-  // Don't show if no submission data
-  if (!task.submissionNote && (!task.submittedFiles || task.submittedFiles.length === 0)) {
-    return null;
+function FileTypeIcon({ fileType, className = "h-5 w-5" }: { fileType: string; className?: string }) {
+  switch (fileType) {
+    case 'image': return <ImageIcon className={className} />;
+    case 'pdf': return <FileText className={className} />;
+    case 'doc': return <FileText className={className} />;
+    case 'spreadsheet': return <File className={className} />;
+    default: return <Paperclip className={className} />;
   }
+}
+
+function FileTypeColors(fileType: string) {
+  switch (fileType) {
+    case 'image': return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' };
+    case 'pdf': return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-200' };
+    case 'doc': return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' };
+    case 'spreadsheet': return { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' };
+    default: return { bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' };
+  }
+}
+
+// Comprehensive Student Submission Panel
+function StudentSubmissionPanel({ task, formatDate }: { task: Task; formatDate: (date: string | null) => string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [adminRemarks, setAdminRemarks] = useState<Record<string, string>>({});
+  const [adminStatuses, setAdminStatuses] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState<Record<string, boolean>>({});
+  const [adminUser, setAdminUser] = useState<any>(null);
+
+  // Fetch admin user once
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.user) setAdminUser(data.user);
+      });
+  }, []);
+
+  // Fetch submissions lazily when expanded
+  useEffect(() => {
+    if (isExpanded) {
+      fetchSubmissions();
+    }
+  }, [isExpanded]);
+
+  const fetchSubmissions = async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch(`/api/admin/tasks/${task.id}/submissions`);
+      const result = await res.json();
+      if (result.success) {
+        setSubmissions(result.data || []);
+        // Initialize remarks and statuses state for editing
+        const remarksMap: Record<string, string> = {};
+        const statusMap: Record<string, string> = {};
+        result.data.forEach((sub: Submission) => {
+          remarksMap[sub.id] = sub.adminRemark || "";
+          statusMap[sub.id] = sub.status;
+        });
+        setAdminRemarks(remarksMap);
+        setAdminStatuses(statusMap);
+      }
+    } catch (err) {
+      console.error("Failed to fetch submissions", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveReview = async (submissionId: string) => {
+    try {
+      setIsSaving((prev) => ({ ...prev, [submissionId]: true }));
+      const status = adminStatuses[submissionId];
+      const adminRemark = adminRemarks[submissionId];
+
+      const res = await fetch(`/api/admin/tasks/${task.id}/submissions/${submissionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status,
+          adminRemark,
+          reviewedById: adminUser?.id,
+        }),
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert("Submission review updated successfully!");
+        fetchSubmissions();
+      } else {
+        alert(result.error || "Failed to update review");
+      }
+    } catch (err) {
+      console.error("Failed to save review", err);
+      alert("Network error occurred");
+    } finally {
+      setIsSaving((prev) => ({ ...prev, [submissionId]: false }));
+    }
+  };
+
+  // We show submission block if there are submissions in the database OR if there are legacy fields
+  const hasLegacySubmission = task.submissionNote || (task.submittedFiles && task.submittedFiles.length > 0);
+  const hasDbSubmissions = task.submissions && task.submissions.length > 0;
+
+  if (!hasLegacySubmission && !hasDbSubmissions) return null;
 
   return (
     <div className="mt-3">
-      {/* Compact Summary */}
+      {/* Compact Summary Bar */}
       <div className="p-3 bg-emerald-50 border-l-4 border-emerald-500 rounded-r-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-1">
@@ -1114,25 +1282,11 @@ function SubmissionSummary({ task, formatDate }: { task: Task; formatDate: (date
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs font-bold text-emerald-900 uppercase tracking-wide">
-                  Student Submission
+                  Student Submissions
                 </span>
                 {task.submittedAt && (
                   <span className="text-xs text-slate-500">
-                    • {formatDate(task.submittedAt)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-3 mt-1 text-xs text-slate-600">
-                {task.submissionNote && (
-                  <span className="flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    Remarks
-                  </span>
-                )}
-                {task.submittedFiles && task.submittedFiles.length > 0 && (
-                  <span className="flex items-center gap-1">
-                    <Paperclip className="h-3 w-3" />
-                    {task.submittedFiles.length} file{task.submittedFiles.length > 1 ? 's' : ''}
+                    • Last Submitted: {formatDate(task.submittedAt)}
                   </span>
                 )}
               </div>
@@ -1142,111 +1296,472 @@ function SubmissionSummary({ task, formatDate }: { task: Task; formatDate: (date
             size="sm"
             variant="ghost"
             onClick={() => setIsExpanded(!isExpanded)}
-            className="h-7 px-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100"
+            className="h-7 px-3 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:bg-emerald-100 gap-1"
           >
-            {isExpanded ? 'Hide' : 'See More'}
-            <svg 
-              className={`h-3 w-3 ml-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none" 
-              viewBox="0 0 24 24" 
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            {isExpanded ? (
+              <><ChevronUp className="h-3.5 w-3.5" /> Hide</>
+            ) : (
+              <><ChevronDown className="h-3.5 w-3.5" /> See More</>
+            )}
           </Button>
         </div>
       </div>
 
-      {/* Expanded Details */}
+      {/* Expanded Details - Using the same green-bordered card styling */}
       {isExpanded && (
-        <div className="mt-2 p-4 bg-white border-2 border-emerald-200 rounded-lg space-y-4">
-          {/* Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-            <h4 className="text-sm font-bold text-emerald-900">
-              Student Submission Details
-            </h4>
-            <Badge className="bg-emerald-500 text-white border-0 text-xs">
-              SUBMITTED
-            </Badge>
-          </div>
-
-          {/* Submission Date */}
-          {task.submittedAt && (
-            <div className="text-xs text-slate-600">
-              📅 <span className="font-semibold">Submitted on:</span>{' '}
-              {new Date(task.submittedAt).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
+        <div className="mt-2 p-4 bg-white border-2 border-emerald-200 rounded-lg space-y-6">
+          {isLoading ? (
+            <div className="flex items-center justify-center p-6">
+              <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
             </div>
-          )}
+          ) : submissions.length === 0 ? (
+            // Fallback for legacy submission (before Submissions model was added)
+            <div className="space-y-3 py-1 text-slate-700 dark:text-slate-200">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h4 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5 uppercase tracking-wider">
+                  Legacy Submission Details
+                </h4>
+              </div>
 
-          {/* Student's Remarks */}
-          {task.submissionNote && (
-            <div>
-              <Label className="text-xs font-semibold text-slate-700 mb-2 block">
-                📝 Student's Remarks
-              </Label>
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-md text-sm text-slate-900 leading-relaxed whitespace-pre-wrap">
-                {task.submissionNote}
+              {/* Submitted By */}
+              <div className="flex items-center gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 flex items-center gap-1.5">
+                  <span>👤</span> Submitted By
+                </div>
+                <div className="flex-1 text-xs font-bold text-slate-700 dark:text-slate-300">
+                  {getAssigneeLabel(task)}
+                </div>
+              </div>
+
+              {/* Submission Date & Time */}
+              <div className="flex items-center gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 flex items-center gap-1.5">
+                  <span>📅</span> Submission Date & Time
+                </div>
+                <div className="flex-1 text-xs text-slate-600 dark:text-slate-400">
+                  {task.submittedAt ? formatDate(task.submittedAt) : "Not recorded"}
+                </div>
+              </div>
+
+              {/* User Remarks */}
+              <div className="flex items-start gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 pt-0.5 flex items-center gap-1.5">
+                  <span>💬</span> User Remarks
+                </div>
+                <div className="flex-1 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                  {task.submissionNote || <span className="text-slate-400 italic">No remarks</span>}
+                </div>
+              </div>
+
+              {/* Student's Attachments */}
+              <div className="flex items-start gap-4 py-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 pt-2 flex items-center gap-1.5">
+                  <span>📎</span> Student's Attachments
+                </div>
+                <div className="flex-1 flex flex-wrap gap-2">
+                  {task.submittedFiles && task.submittedFiles.length > 0 ? (
+                    task.submittedFiles.map((url, fIdx) => {
+                      const rawName = url.split('?')[0].split('/').pop() || url;
+                      const fileName = decodeURIComponent(rawName);
+                      const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
+                      const isImage = ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext);
+                      const isPdf = ext === 'pdf';
+                      const isDoc = ['doc', 'docx'].includes(ext);
+                      const isZip = ['zip', 'rar', '7z'].includes(ext);
+
+                      return (
+                        <div
+                          key={fIdx}
+                          className="group relative flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 hover:border-slate-300 rounded-lg shadow-sm hover:shadow transition-all duration-200"
+                        >
+                          {isImage ? (
+                            <div className="relative h-5 w-5 rounded overflow-hidden shrink-0 border border-slate-100">
+                              <img src={url} alt={fileName} className="h-full w-full object-cover" loading="lazy" />
+                            </div>
+                          ) : (
+                            <div className="shrink-0">
+                              {isPdf ? (
+                                <FileText className="h-5 w-5 text-red-500" />
+                              ) : isDoc ? (
+                                <File className="h-5 w-5 text-blue-500" />
+                              ) : isZip ? (
+                                <File className="h-5 w-5 text-amber-500" />
+                              ) : (
+                                <Paperclip className="h-5 w-5 text-slate-400" />
+                              )}
+                            </div>
+                          )}
+
+                          <div className="flex flex-col min-w-0">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-medium text-slate-700 hover:text-emerald-600 transition-colors truncate max-w-[160px]"
+                              title={fileName}
+                            >
+                              {fileName}
+                            </a>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 ml-1 pl-1.5 border-l border-slate-100 shrink-0">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open in new tab"
+                              className="p-0.5 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </a>
+                            <a
+                              href={url}
+                              download
+                              title="Download file"
+                              className="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="flex items-center gap-2 p-2 bg-slate-50 border border-dashed border-slate-200 rounded-lg">
+                      <Paperclip className="h-4 w-4 text-slate-300" />
+                      <span className="text-xs text-slate-400 italic">No files uploaded.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Task Status */}
+              <div className="flex items-center gap-4 py-1.5">
+                <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 flex items-center gap-1.5">
+                  <span>✅</span> Task Status
+                </div>
+                <div className="flex-1">
+                  <Badge className="text-xs px-2 py-0.5 border bg-emerald-100 text-emerald-800 border-emerald-200">
+                    {task.status}
+                  </Badge>
+                </div>
               </div>
             </div>
-          )}
+          ) : (
+            // Full interactive timeline of submissions
+            <div className="space-y-6">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                  Submission History Timeline
+                </h4>
+              </div>
 
-          {/* Student's Attachments */}
-          {task.submittedFiles && task.submittedFiles.length > 0 && (
-            <div>
-              <Label className="text-xs font-semibold text-slate-700 mb-2 block">
-                📎 Student's Attachments ({task.submittedFiles.length})
-              </Label>
-              <div className="space-y-2">
-                {task.submittedFiles.map((file, idx) => {
-                  const fileName = file.split('/').pop() || file;
-                  const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-                  
+              <div className="relative border-l-2 border-emerald-100 pl-4 ml-2 space-y-6">
+                {submissions.map((sub) => {
+                  const statusColors = {
+                    PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+                    APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+                    NEEDS_REVISION: "bg-orange-100 text-orange-800 border-orange-200",
+                    REJECTED: "bg-red-100 text-red-800 border-red-200",
+                  };
+
                   return (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-md hover:bg-slate-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-8 w-8 rounded bg-emerald-100 flex items-center justify-center shrink-0">
-                          <Paperclip className="h-4 w-4 text-emerald-600" />
+                    <div key={sub.id} className="relative space-y-4 pb-6 border-b border-slate-100 dark:border-slate-800 last:border-0 last:pb-0">
+                      {/* Timeline Dot */}
+                      <div className="absolute -left-[25px] mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-emerald-500 bg-white dark:bg-black" />
+
+                      <div className="space-y-3 py-1 text-slate-700 dark:text-slate-200">
+                        {/* Submitted By */}
+                        <div className="flex items-center gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                          <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 flex items-center gap-1.5">
+                            <span>👤</span> Submitted By
+                          </div>
+                          <div className="flex-1 flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+                            {sub.user?.fullName || "Student"}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">
-                            {fileName}
-                          </p>
+
+                        {/* Submission Date & Time */}
+                        <div className="flex items-center gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                          <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 flex items-center gap-1.5">
+                            <span>📅</span> Submission Date & Time
+                          </div>
+                          <div className="flex-1 text-xs text-slate-600 dark:text-slate-400">
+                            {new Date(sub.submittedAt).toLocaleString()}
+                          </div>
+                        </div>
+
+                        {/* Work Description */}
+                        <div className="flex items-start gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                          <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 pt-0.5 flex items-center gap-1.5">
+                            <span>📝</span> Work Description
+                          </div>
+                          <div className="flex-1 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                            {sub.workDescription || <span className="text-slate-400 italic">No description provided</span>}
+                          </div>
+                        </div>
+
+                        {/* User Remarks */}
+                        <div className="flex items-start gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                          <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 pt-0.5 flex items-center gap-1.5">
+                            <span>💬</span> User Remarks
+                          </div>
+                          <div className="flex-1 text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                            {sub.remarks || <span className="text-slate-400 italic">No remarks</span>}
+                          </div>
+                        </div>
+
+                        {/* Progress History */}
+                        <div className="flex items-center gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800">
+                          <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 flex items-center gap-1.5">
+                            <span>📊</span> Progress History
+                          </div>
+                          <div className="flex-1 flex items-center gap-3">
+                            <div className="w-full max-w-xs h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${sub.progress}%` }} />
+                            </div>
+                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{sub.progress}%</span>
+                          </div>
+                        </div>
+
+                        {/* Student's Attachments */}
+                        <div className="flex items-start gap-4 py-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                          <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 pt-2 flex items-center gap-1.5">
+                            <span>📎</span> Student's Attachments
+                          </div>
+                          <div className="flex-1 flex flex-wrap gap-2">
+                            {/* Rich SubmissionFile records (new submissions) */}
+                            {sub.files && sub.files.length > 0 ? (
+                              sub.files.map((sf) => {
+                                const mime = sf.mimeType || "";
+                                const isImage = mime.startsWith("image/");
+                                const isPdf = mime === "application/pdf";
+                                const isDoc = mime.includes("word") || mime.includes("msword");
+                                const isSheet = mime.includes("sheet") || mime.includes("excel");
+                                const isZip = mime.includes("zip") || mime.includes("compressed") || mime.includes("rar");
+
+                                const sizeLabel = sf.fileSize > 0
+                                  ? sf.fileSize >= 1024 * 1024
+                                    ? `${(sf.fileSize / 1024 / 1024).toFixed(1)} MB`
+                                    : `${(sf.fileSize / 1024).toFixed(0)} KB`
+                                  : null;
+
+                                return (
+                                  <div
+                                    key={sf.id}
+                                    className="group relative flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-lg shadow-sm hover:shadow transition-all duration-200"
+                                  >
+                                    {/* Icon / Thumbnail */}
+                                    {isImage ? (
+                                      <div className="relative h-5 w-5 rounded overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={sf.fileUrl}
+                                          alt={sf.originalName}
+                                          className="h-full w-full object-cover"
+                                          loading="lazy"
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="shrink-0">
+                                        {isPdf ? (
+                                          <FileText className="h-5 w-5 text-red-500" />
+                                        ) : isDoc ? (
+                                          <File className="h-5 w-5 text-blue-500" />
+                                        ) : isSheet ? (
+                                          <File className="h-5 w-5 text-emerald-500" />
+                                        ) : isZip ? (
+                                          <File className="h-5 w-5 text-amber-500" />
+                                        ) : (
+                                          <Paperclip className="h-5 w-5 text-slate-400" />
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Filename and Size */}
+                                    <div className="flex flex-col min-w-0">
+                                      <a
+                                        href={sf.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate max-w-[160px]"
+                                        title={sf.originalName}
+                                      >
+                                        {sf.originalName}
+                                      </a>
+                                      {sizeLabel && (
+                                        <span className="text-[9px] text-slate-400 leading-none mt-0.5">
+                                          {sizeLabel}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {/* Action Buttons */}
+                                    <div className="flex items-center gap-1.5 ml-1 pl-1.5 border-l border-slate-100 dark:border-slate-800 shrink-0">
+                                      <a
+                                        href={sf.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Open in new tab"
+                                        className="p-0.5 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-all"
+                                      >
+                                        <Eye className="h-3.5 w-3.5" />
+                                      </a>
+                                      <a
+                                        href={sf.fileUrl}
+                                        download={sf.originalName}
+                                        title="Download file"
+                                        className="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all"
+                                      >
+                                        <Download className="h-3.5 w-3.5" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : sub.fileUrls && sub.fileUrls.length > 0 ? (
+                              // Legacy fallback (old submissions before SubmissionFile model)
+                              sub.fileUrls.map((url, fIdx) => {
+                                const rawName = url.split('?')[0].split('/').pop() || url;
+                                const fileName = decodeURIComponent(rawName);
+                                const ext = url.split('?')[0].split('.').pop()?.toLowerCase() || '';
+                                const isImage = ['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext);
+                                const isPdf = ext === 'pdf';
+                                const isDoc = ['doc', 'docx'].includes(ext);
+                                const isZip = ['zip', 'rar', '7z'].includes(ext);
+
+                                return (
+                                  <div
+                                    key={fIdx}
+                                    className="group relative flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 rounded-lg shadow-sm hover:shadow transition-all duration-200"
+                                  >
+                                    {isImage ? (
+                                      <div className="relative h-5 w-5 rounded overflow-hidden shrink-0 border border-slate-100 dark:border-slate-800">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={url} alt={fileName} className="h-full w-full object-cover" loading="lazy" />
+                                      </div>
+                                    ) : (
+                                      <div className="shrink-0">
+                                        {isPdf ? (
+                                          <FileText className="h-5 w-5 text-red-500" />
+                                        ) : isDoc ? (
+                                          <File className="h-5 w-5 text-blue-500" />
+                                        ) : isZip ? (
+                                          <File className="h-5 w-5 text-amber-500" />
+                                        ) : (
+                                          <Paperclip className="h-5 w-5 text-slate-400" />
+                                        )}
+                                      </div>
+                                    )}
+
+                                    <div className="flex flex-col min-w-0">
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs font-medium text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate max-w-[160px]"
+                                        title={fileName}
+                                      >
+                                        {fileName}
+                                      </a>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 ml-1 pl-1.5 border-l border-slate-100 dark:border-slate-800 shrink-0">
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        title="Open in new tab"
+                                        className="p-0.5 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-all"
+                                      >
+                                        <Eye className="h-3.5 w-3.5" />
+                                      </a>
+                                      <a
+                                        href={url}
+                                        download
+                                        title="Download file"
+                                        className="p-0.5 rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 transition-all"
+                                      >
+                                        <Download className="h-3.5 w-3.5" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                                <Paperclip className="h-4 w-4 text-slate-300" />
+                                <span className="text-xs text-slate-400 italic">No files uploaded.</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Task Status */}
+                        <div className="flex items-center gap-4 py-1.5">
+                          <div className="text-xs font-semibold text-slate-500 w-44 shrink-0 flex items-center gap-1.5">
+                            <span>✅</span> Task Status
+                          </div>
+                          <div className="flex-1">
+                            <Badge className={`text-xs px-2 py-0.5 border ${statusColors[sub.status]}`}>
+                              {sub.status}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium"
-                          onClick={() => {
-                            const link = document.createElement('a');
-                            link.href = file;
-                            link.download = fileName;
-                            link.target = '_blank';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          }}
-                        >
-                          Download
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 px-3 text-slate-600 hover:bg-slate-100 text-xs font-medium"
-                          onClick={() => window.open(file, '_blank')}
-                        >
-                          View
-                        </Button>
+
+                      {/* Admin Feedback Input Form */}
+                      <div className="bg-emerald-50/30 p-3 rounded-lg border border-emerald-100 space-y-3">
+                        <span className="text-xs font-bold text-emerald-900 block">
+                          Review Submission
+                        </span>
+                        
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] uppercase font-bold text-slate-500">Status</Label>
+                            <Select
+                              value={adminStatuses[sub.id]}
+                              onValueChange={(val) => setAdminStatuses(prev => ({ ...prev, [sub.id]: val }))}
+                            >
+                              <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="PENDING">Pending Review</SelectItem>
+                                <SelectItem value="APPROVED">Approved</SelectItem>
+                                <SelectItem value="NEEDS_REVISION">Needs Revision</SelectItem>
+                                <SelectItem value="REJECTED">Rejected</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-[10px] uppercase font-bold text-slate-500">Remarks / Feedback</Label>
+                            <Textarea
+                              className="h-8 min-h-[32px] text-xs py-1.5 bg-white border-slate-200 resize-none"
+                              placeholder="Feedback notes to user..."
+                              value={adminRemarks[sub.id]}
+                              onChange={(e) => setAdminRemarks(prev => ({ ...prev, [sub.id]: e.target.value }))}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-1">
+                          <Button
+                            size="sm"
+                            disabled={isSaving[sub.id]}
+                            onClick={() => handleSaveReview(sub.id)}
+                            className="h-7 text-xs bg-emerald-600 text-white hover:bg-emerald-700 font-semibold gap-1"
+                          >
+                            {isSaving[sub.id] ? (
+                              <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>
+                            ) : (
+                              "Save Feedback"
+                            )}
+                          </Button>
+                        </div>
                       </div>
+
                     </div>
                   );
                 })}
@@ -1258,6 +1773,7 @@ function SubmissionSummary({ task, formatDate }: { task: Task; formatDate: (date
     </div>
   );
 }
+
 
 // TaskCard Component
 function TaskCard({
@@ -1332,13 +1848,11 @@ function TaskCard({
               )}
             </div>
 
-            {/* Quick Submission Summary - Compact view with expandable details */}
-            {task.status === "COMPLETED" && (task.submissionNote || (task.submittedFiles && task.submittedFiles.length > 0)) && (
-              <SubmissionSummary 
-                task={task}
-                formatDate={formatDate}
-              />
-            )}
+            {/* Student Submission Panel — shows whenever there is submission data or progress history */}
+            <StudentSubmissionPanel 
+              task={task}
+              formatDate={formatDate}
+            />
           </div>
 
           <DropdownMenu>

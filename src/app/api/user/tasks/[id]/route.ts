@@ -39,6 +39,9 @@ export async function GET(
           orderBy: { createdAt: "desc" },
           take: 10,
         },
+        submissions: {
+          orderBy: { submittedAt: "desc" },
+        },
       },
     });
 
@@ -130,14 +133,14 @@ export async function PATCH(
     });
 
     // Create progress update if userId provided
-    if (userId && submissionNote) {
+    if (userId) {
       await prisma.taskProgress.create({
         data: {
           taskId,
           userId,
           status,
           progress: status === "COMPLETED" ? 100 : status === "IN_PROGRESS" ? 50 : 0,
-          comment: submissionNote,
+          comment: submissionNote || null,
         },
       });
     }
