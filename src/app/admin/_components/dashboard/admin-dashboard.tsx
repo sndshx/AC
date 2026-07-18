@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip,
-  CartesianGrid, PieChart as RechartsPieChart, Pie, Cell
+  CartesianGrid
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -197,8 +197,8 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* == Row 1: 4 primary stat cards ======================== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* == Row 1: Primary stat cards ======================== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div 
           className="cursor-pointer transform transition-all hover:scale-105"
           onClick={() => router.push('/admin/users')}
@@ -212,45 +212,6 @@ export function AdminDashboard() {
             label="Total Team Members"
             sub="Active marketing team across all departments"
             trend={stats ? stats.totalTeamMembersTrend : "—"}
-          />
-        </div>
-        <Link
-          href="/admin/whatsapp"
-          className="cursor-pointer transform transition-all hover:scale-105 block"
-        >
-          <StatCard
-            icon={MessageSquare}
-            iconBg="bg-gradient-to-br from-emerald-50 to-emerald-100"
-            iconColor="text-emerald-700"
-            badge={stats ? `${stats.whatsappMessagesDaily.toLocaleString()} today` : "WhatsApp"}
-            value={stats ? stats.whatsappMessagesMonthly.toLocaleString() : "—"}
-            label="WhatsApp Messages (mo.)"
-            sub={stats
-              ? `${stats.whatsappMessagesDaily.toLocaleString()} sent today across all numbers`
-              : "Loading live data…"
-            }
-            topLine={
-              stats?.whatsappTopContributor
-                ? `Top: ${stats.whatsappTopContributor.name ?? stats.whatsappTopContributor.phone} (${stats.whatsappTopContributor.count.toLocaleString()})`
-                : undefined
-            }
-            trend="View all numbers →"
-          />
-        </Link>
-        <div 
-          className="cursor-pointer transform transition-all hover:scale-105"
-          onClick={() => router.push('/admin/marketing')}
-        >
-          <StatCard
-            icon={Activity}
-            iconBg="bg-gradient-to-br from-green-50 to-green-100"
-            iconColor="text-green-600"
-            badge={stats ? stats.campaignRepliesTrend : "—"}
-            badgeColor="text-emerald-600"
-            value={stats ? stats.campaignReplies.toLocaleString() : "—"}
-            label="Campaign Replies"
-            sub={stats ? stats.campaignRepliesSub : "—"}
-            trend={stats ? stats.campaignRepliesTrend : "—"}
           />
         </div>
         <div 
@@ -271,219 +232,86 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {/* == Row 3: Line chart + Donut chart ==================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-
-        {/* Campaign Activity */}
-        <Card className="lg:col-span-2 border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/reports')}>
-          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-xs font-bold text-slate-900 dark:text-white">Weekly Campaign Performance</CardTitle>
-                <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Messages sent & replies received across last 7 days</p>
-              </div>
-              <div className="flex items-center gap-2 text-[9px] font-normal text-slate-600 dark:text-slate-400">
-                <span className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#00C853] shadow-sm" />
-                  Messages
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#143D2C] shadow-sm" />
-                  Replies
-                </span>
-              </div>
+      {/* == Row 3: Campaign Activity Chart ==================== */}
+      <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/reports')}>
+        <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xs font-bold text-slate-900 dark:text-white">Weekly Campaign Performance</CardTitle>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Messages sent & replies received across last 7 days</p>
             </div>
-          </CardHeader>
-          <CardContent className="px-2 pb-3 pt-2">
-            <div className="h-40">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats ? stats.weeklyCampaignPerformance : []} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.15)" />
-                  <XAxis 
-                    dataKey="day" 
-                    fontSize={9} 
-                    fontWeight={600}
-                    tickLine={false} 
-                    axisLine={false} 
-                    tick={{ fill: "#64748b" }} 
-                  />
-                  <YAxis 
-                    yAxisId="left" 
-                    fontSize={9} 
-                    fontWeight={600}
-                    tickLine={false} 
-                    axisLine={false} 
-                    tick={{ fill: "#64748b" }} 
-                  />
-                  <YAxis 
-                    yAxisId="right" 
-                    orientation="right" 
-                    fontSize={9}
-                    fontWeight={600} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tick={{ fill: "#64748b" }} 
-                  />
-                  <Tooltip 
-                    content={<ChartTooltip />} 
-                    cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }}
-                  />
-                  <Line 
-                    yAxisId="left" 
-                    type="monotone" 
-                    dataKey="messages" 
-                    stroke="#00C853" 
-                    strokeWidth={2} 
-                    dot={{ r: 3, fill: "#00C853", strokeWidth: 2, stroke: "#fff" }} 
-                    activeDot={{ r: 4 }}
-                    name="Messages" 
-                  />
-                  <Line 
-                    yAxisId="right" 
-                    type="monotone" 
-                    dataKey="replies" 
-                    stroke="#143D2C" 
-                    strokeWidth={2} 
-                    dot={{ r: 3, fill: "#143D2C", strokeWidth: 2, stroke: "#fff" }} 
-                    activeDot={{ r: 4 }}
-                    name="Replies" 
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="flex items-center gap-2 text-[9px] font-normal text-slate-600 dark:text-slate-400">
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#00C853] shadow-sm" />
+                Messages
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#143D2C] shadow-sm" />
+                Replies
+              </span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </CardHeader>
+        <CardContent className="px-2 pb-3 pt-2">
+          <div className="h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={stats ? stats.weeklyCampaignPerformance : []} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.15)" />
+                <XAxis 
+                  dataKey="day" 
+                  fontSize={9} 
+                  fontWeight={600}
+                  tickLine={false} 
+                  axisLine={false} 
+                  tick={{ fill: "#64748b" }} 
+                />
+                <YAxis 
+                  yAxisId="left" 
+                  fontSize={9} 
+                  fontWeight={600}
+                  tickLine={false} 
+                  axisLine={false} 
+                  tick={{ fill: "#64748b" }} 
+                />
+                <YAxis 
+                  yAxisId="right" 
+                  orientation="right" 
+                  fontSize={9}
+                  fontWeight={600} 
+                  tickLine={false} 
+                  axisLine={false} 
+                  tick={{ fill: "#64748b" }} 
+                />
+                <Tooltip 
+                  content={<ChartTooltip />} 
+                  cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }}
+                />
+                <Line 
+                  yAxisId="left" 
+                  type="monotone" 
+                  dataKey="messages" 
+                  stroke="#00C853" 
+                  strokeWidth={2} 
+                  dot={{ r: 3, fill: "#00C853", strokeWidth: 2, stroke: "#fff" }} 
+                  activeDot={{ r: 4 }}
+                  name="Messages" 
+                />
+                <Line 
+                  yAxisId="right" 
+                  type="monotone" 
+                  dataKey="replies" 
+                  stroke="#143D2C" 
+                  strokeWidth={2} 
+                  dot={{ r: 3, fill: "#143D2C", strokeWidth: 2, stroke: "#fff" }} 
+                  activeDot={{ r: 4 }}
+                  name="Replies" 
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Team Roles */}
-        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/users')}>
-          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white">Team Composition</CardTitle>
-            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Member distribution by role type</p>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-2">
-            <div className="h-28 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={stats ? stats.teamRoleDistribution : []}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={32}
-                    outerRadius={50}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {(stats ? stats.teamRoleDistribution : []).map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(v: any) => [`${v} members`]} 
-                    contentStyle={{ fontSize: '10px', fontWeight: 600 }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-1.5 mt-2">
-              {(stats ? stats.teamRoleDistribution : []).map((p) => (
-                <div key={p.name} className="flex items-center justify-between text-[10px]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full shadow-sm" style={{ backgroundColor: p.color }} />
-                    <span className="text-slate-700 dark:text-slate-300 font-semibold">{p.name}</span>
-                  </div>
-                  <span className="font-bold text-slate-900 dark:text-white">{p.value}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* == Row 4: Team by Role | Task Statuses | WhatsApp Health == */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-
-        {/* Users by Role */}
-        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-              <Users className="h-3 w-3 text-[#00C853]" />
-              Team by Role
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-2.5 space-y-2.5">
-            {(stats ? stats.teamRoleDistribution : []).map((p) => {
-              const pct = totalMembers > 0 ? Math.round(p.value / totalMembers * 100) : 0;
-              return (
-                <div key={p.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-[9px]">
-                    <span className="font-bold uppercase tracking-wide" style={{ color: p.color }}>{p.name}</span>
-                    <span className="text-slate-500 dark:text-slate-400 font-medium">{p.value} ({pct}%)</span>
-                  </div>
-                  <div className="h-1 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{ width: `${pct}%`, backgroundColor: p.color }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-
-        {/* Task Statuses */}
-        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-              <CheckCircle2 className="h-3 w-3 text-[#00C853]" />
-              Task Statuses
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-2.5 space-y-2">
-            {(stats ? stats.taskStatuses : []).map((j) => (
-              <div key={j.label} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
-                <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: j.color }} />
-                  <span className="text-[10px] font-semibold text-slate-700 dark:text-slate-300">{j.label}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold text-slate-900 dark:text-white">{j.count}</span>
-                  <span className="text-[8px] font-bold px-1 py-0.5 rounded-full text-white" style={{ backgroundColor: j.color }}>
-                    {j.pct}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* WhatsApp Health */}
-        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
-          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-              <MessageSquare className="h-3 w-3 text-[#00C853]" />
-              WhatsApp Health
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-2.5 space-y-1.5">
-            {(stats ? stats.whatsappHealthStats : []).map((w, i) => (
-              <div key={i} className="flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200">{w.user}</p>
-                  <p className="text-[8px] text-slate-400 dark:text-slate-500">{w.messages.toLocaleString()} messages</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-slate-900 dark:text-white">{w.health}%</p>
-                  <span className={`text-[8px] font-bold uppercase tracking-wide px-1 py-0.5 rounded ${healthColor[w.status] || "bg-emerald-500"} text-white`}>{w.status}</span>
-                </div>
-              </div>
-            ))}
-            {(stats ? stats.whatsappHealthStats : []).length === 0 && (
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center py-4">No active accounts</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
 
 
       {/* == Row 6: Recent Team Members | Recent Tasks ============== */}
@@ -575,158 +403,10 @@ export function AdminDashboard() {
         </Card>
       </div>
 
-      {/* == Row 7: Hourly Activity Pattern ========================= */}
-      <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
-        <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                <Clock className="h-3 w-3 text-[#00C853]" />
-                Hourly Activity Pattern
-              </CardTitle>
-              <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Team activity distribution across 24 hours</p>
-            </div>
-            <Badge className="bg-[#E8F7EE] text-[#143D2C] dark:bg-[#143D2C] dark:text-[#E8F7EE] text-[9px] font-semibold px-2 py-0.5">
-              Real-time message traffic
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="px-2 pb-3 pt-2">
-          <div className="h-32">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={stats ? stats.hourlyActivityData : []} margin={{ top: 5, right: 15, left: -15, bottom: 5 }}>
-                <defs>
-                  <linearGradient id="activityGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00C853" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#00C853" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.15)" />
-                <XAxis 
-                  dataKey="hour" 
-                  fontSize={9} 
-                  fontWeight={600}
-                  tickLine={false} 
-                  axisLine={false} 
-                  tick={{ fill: "#64748b" }} 
-                />
-                <YAxis 
-                  fontSize={9} 
-                  fontWeight={600}
-                  tickLine={false} 
-                  axisLine={false} 
-                  tick={{ fill: "#64748b" }} 
-                />
-                <Tooltip 
-                  content={<ChartTooltip />} 
-                  cursor={{ stroke: '#e2e8f0', strokeWidth: 1 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="activity" 
-                  stroke="#00C853" 
-                  strokeWidth={2.5} 
-                  dot={{ r: 3, fill: "#00C853", strokeWidth: 2, stroke: "#fff" }} 
-                  activeDot={{ r: 5 }}
-                  name="Messages Sent"
-                  fill="url(#activityGradient)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+
 
       {/* == Row 8: Performance Insights Grid ======================= */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        
-        {/* Top Performers */}
-        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/users')}>
-          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-[#00C853]" />
-              Top Performers
-            </CardTitle>
-            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Highest reply rates overall</p>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-2 space-y-2">
-            {(stats ? stats.topPerformers : []).map((w, i) => (
-              <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-emerald-50 to-transparent dark:from-emerald-900/20 border border-emerald-100 dark:border-emerald-900/30">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-[#00C853] text-white text-[9px] font-bold">
-                    #{i + 1}
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200">{w.user}</p>
-                    <p className="text-[8px] text-slate-500 dark:text-slate-400">{w.replies.toLocaleString()} replies</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-[#00C853]">{w.rate}%</p>
-                  <p className="text-[7px] text-slate-400 dark:text-slate-500 uppercase">Rate</p>
-                </div>
-              </div>
-            ))}
-            {(stats ? stats.topPerformers : []).length === 0 && (
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center py-4">No data available</p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Campaign Stats */}
-        <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push('/admin/marketing')}>
-          <CardHeader className="pb-2 pt-3 px-3 border-b border-slate-100 dark:border-slate-800">
-            <CardTitle className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1">
-              <Activity className="h-3 w-3 text-[#00C853]" />
-              Campaign Statistics
-            </CardTitle>
-            <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">Overall campaign metrics</p>
-          </CardHeader>
-          <CardContent className="px-3 pb-3 pt-2 space-y-2.5">
-            <div 
-              className="flex items-center justify-between p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-900/30 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-              onClick={() => router.push('/admin/marketing')}
-            >
-              <div>
-                <p className="text-[9px] text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wide">Active Campaigns</p>
-                <p className="text-xl font-bold text-blue-700 dark:text-blue-300 mt-0.5">
-                  {stats ? stats.campaignStats.activeCampaigns.toLocaleString() : "—"}
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
-                <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-            </div>
-            <div 
-              className="flex items-center justify-between p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
-              onClick={() => router.push('/admin/reports')}
-            >
-              <div>
-                <p className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold uppercase tracking-wide">Avg Open Rate</p>
-                <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-0.5">
-                  {stats ? `${stats.campaignStats.avgOpenRate}%` : "—"}
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                <Activity className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-              </div>
-            </div>
-            <div 
-              className="flex items-center justify-between p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-900/30 cursor-pointer hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
-              onClick={() => router.push('/admin/reports')}
-            >
-              <div>
-                <p className="text-[9px] text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wide">Conversion Rate</p>
-                <p className="text-xl font-bold text-purple-700 dark:text-purple-300 mt-0.5">
-                  {stats ? `${stats.campaignStats.conversionRate}%` : "—"}
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 gap-3">
 
         {/* Quick Actions */}
         <Card className="border border-slate-200/60 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900 hover:shadow-md transition-shadow">
