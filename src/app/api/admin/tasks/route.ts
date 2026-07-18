@@ -52,6 +52,13 @@ export async function GET(request: NextRequest) {
             email: true,
           },
         },
+        progressUpdates: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        submissions: {
+          orderBy: { submittedAt: 'desc' },
+        },
       },
       orderBy: [
         { priority: 'desc' },

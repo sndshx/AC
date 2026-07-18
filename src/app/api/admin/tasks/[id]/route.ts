@@ -28,6 +28,19 @@ export async function GET(
             email: true,
           },
         },
+        assignedToTeam: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        progressUpdates: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        submissions: {
+          orderBy: { submittedAt: 'desc' },
+        },
       },
     });
 

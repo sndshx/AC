@@ -78,6 +78,21 @@ type TaskProgress = {
   createdAt: string;
 };
 
+type Submission = {
+  id: string;
+  taskId: string;
+  userId: string;
+  workDescription: string | null;
+  remarks: string | null;
+  progress: number;
+  fileUrls: string[];
+  submittedAt: string;
+  status: "PENDING" | "APPROVED" | "NEEDS_REVISION" | "REJECTED";
+  adminRemark: string | null;
+  reviewedAt: string | null;
+  reviewedById: string | null;
+};
+
 type Task = {
   id: string;
   title: string;
@@ -101,6 +116,7 @@ type Task = {
   submissionNote?: string | null;
   submittedAt?: string | null;
   submittedFiles?: string[];
+  submissions?: Submission[];
 };
 
 type TaskStats = {
@@ -131,6 +147,8 @@ export function UserTasks() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [submissionNote, setSubmissionNote] = useState("");
+  const [workDescription, setWorkDescription] = useState("");
+  const [submissionProgress, setSubmissionProgress] = useState(100);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
@@ -256,21 +274,22 @@ export function UserTasks() {
   const handleSubmitTask = async () => {
     if (!selectedTask || !currentUserId) return;
 
-    if (!submissionNote.trim() && uploadedFiles.length === 0) {
-      alert("Please add a submission note or upload at least one file");
+    if (!workDescription.trim() && !submissionNote.trim() && uploadedFiles.length === 0) {
+      alert("Please enter work description, remarks, or upload at least one file");
       return;
     }
 
     try {
       setIsUploading(true);
 
-      // Upload files first if any
-      let fileUrls: string[] = [];
+      // Upload files first if any — capture full metadata, not just URLs
+      let uploadedFileObjects: Array<{ url: string; name: string; fileSize: number; mimeType: string }> = [];
       if (uploadedFiles.length > 0) {
         const formData = new FormData();
         uploadedFiles.forEach(file => {
           formData.append('files', file);
         });
+        formData.append('folder', 'ai-marketing-command/task-submissions');
         formData.append('taskId', selectedTask.id);
         formData.append('userId', currentUserId);
 
@@ -281,20 +300,41 @@ export function UserTasks() {
 
         if (uploadResponse.ok) {
           const uploadResult = await uploadResponse.json();
-          fileUrls = uploadResult.urls || [];
+          // Prefer the full files[] array with metadata; fall back to plain URLs
+          if (uploadResult.files && uploadResult.files.length > 0) {
+            uploadedFileObjects = uploadResult.files.map((f: { url: string; name: string; fileSize?: number; mimeType?: string }) => ({
+              url: f.url,
+              name: f.name,
+              fileSize: f.fileSize ?? 0,
+              mimeType: f.mimeType ?? 'application/octet-stream',
+            }));
+          } else if (uploadResult.urls) {
+            // Legacy fallback: plain URLs with names inferred from local files list
+            uploadedFileObjects = uploadResult.urls.map((url: string, i: number) => ({
+              url,
+              name: uploadedFiles[i]?.name || url.split('/').pop() || 'file',
+              fileSize: uploadedFiles[i]?.size ?? 0,
+              mimeType: uploadedFiles[i]?.type || 'application/octet-stream',
+            }));
+          }
+        } else {
+          const uploadError = await uploadResponse.json().catch(() => ({}));
+          alert(uploadError.error || "File upload failed. Please try again.");
+          setIsUploading(false);
+          return;
         }
       }
 
-      // Submit task completion
-      const response = await fetch(`/api/user/tasks/${selectedTask.id}`, {
-        method: "PATCH",
+      // Submit task completion using the new endpoint
+      const response = await fetch(`/api/user/tasks/${selectedTask.id}/submit`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "COMPLETED",
           userId: currentUserId,
-          submissionNote: submissionNote.trim(),
-          submittedFiles: fileUrls,
-          submittedAt: new Date().toISOString(),
+          workDescription: workDescription.trim(),
+          remarks: submissionNote.trim(),
+          progress: submissionProgress,
+          files: uploadedFileObjects,
         }),
       });
 
@@ -305,6 +345,8 @@ export function UserTasks() {
         await fetchStats();
         setIsSubmitDialogOpen(false);
         setSubmissionNote("");
+        setWorkDescription("");
+        setSubmissionProgress(100);
         setUploadedFiles([]);
         alert("Task submitted successfully! Admin has been notified.");
       } else {
@@ -316,6 +358,7 @@ export function UserTasks() {
     } finally {
       setIsUploading(false);
     }
+
   };
 
   const handleUpdateProgress = async (taskId: string) => {
@@ -956,67 +999,122 @@ export function UserTasks() {
                 </Card>
               )}
 
-              {/* Submission Information - Only show if task is completed */}
-              {selectedTask.status === "COMPLETED" && (selectedTask.submissionNote || (selectedTask.submittedFiles && selectedTask.submittedFiles.length > 0)) && (
-                <Card className="border-2 border-[#00C853]/30 bg-gradient-to-br from-[#00C853]/5 to-white">
-                  <CardHeader className="bg-[#00C853]/10 border-b border-[#00C853]/20">
-                    <CardTitle className="text-sm font-semibold text-[#00C853] flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Your Submission
+              {/* Submission History Section */}
+              {selectedTask.submissions && selectedTask.submissions.length > 0 && (
+                <Card className="border-2 border-emerald-100 bg-white">
+                  <CardHeader className="bg-emerald-50/50 border-b border-emerald-100">
+                    <CardTitle className="text-sm font-semibold text-emerald-950 flex items-center gap-2">
+                      <History className="h-4 w-4 text-[#00C853]" />
+                      Submission History ({selectedTask.submissions.length})
                     </CardTitle>
-                    {selectedTask.submittedAt && (
-                      <p className="text-xs text-slate-600 mt-1">
-                        Submitted on {formatDate(selectedTask.submittedAt)}
-                      </p>
-                    )}
                   </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                    {/* Submission Remarks */}
-                    {selectedTask.submissionNote && (
-                      <div>
-                        <Label className="text-xs font-semibold text-slate-700 mb-2 block">
-                          Student's Remarks
-                        </Label>
-                        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                          <p className="text-sm text-slate-900 whitespace-pre-wrap leading-relaxed">
-                            {selectedTask.submissionNote}
-                          </p>
-                        </div>
-                      </div>
-                    )}
+                  <CardContent className="p-4 space-y-6">
+                    <div className="relative border-l-2 border-emerald-100 pl-4 ml-2 space-y-6">
+                      {selectedTask.submissions.map((sub) => {
+                        const statusColors = {
+                          PENDING: "bg-amber-100 text-amber-800 border-amber-200",
+                          APPROVED: "bg-emerald-100 text-emerald-800 border-emerald-200",
+                          NEEDS_REVISION: "bg-orange-100 text-orange-800 border-orange-200",
+                          REJECTED: "bg-red-100 text-red-800 border-red-200",
+                        };
+                        const statusLabels = {
+                          PENDING: "Pending Review",
+                          APPROVED: "Approved",
+                          NEEDS_REVISION: "Needs Revision",
+                          REJECTED: "Rejected",
+                        };
 
-                    {/* Submitted Files */}
-                    {selectedTask.submittedFiles && selectedTask.submittedFiles.length > 0 && (
-                      <div>
-                        <Label className="text-xs font-semibold text-slate-700 mb-2 block">
-                          Student's Attachments
-                        </Label>
-                        <div className="space-y-2">
-                          {selectedTask.submittedFiles.map((file, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 bg-white border-2 border-[#00C853]/20 rounded-lg hover:bg-[#00C853]/5 transition-colors">
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className="h-10 w-10 rounded-lg bg-[#00C853]/10 flex items-center justify-center shrink-0">
-                                  <Paperclip className="h-5 w-5 text-[#00C853]" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-slate-900 truncate">
-                                    {file.split('/').pop() || file}
-                                  </p>
+                        return (
+                          <div key={sub.id} className="relative space-y-2">
+                            {/* Dot on timeline */}
+                            <div className="absolute -left-[25px] mt-1 h-3.5 w-3.5 rounded-full border-2 border-emerald-500 bg-white" />
+                            
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-xs font-semibold text-slate-500">
+                                Submitted on {new Date(sub.submittedAt).toLocaleString()}
+                              </span>
+                              <Badge className={`text-xs px-2 py-0.5 border ${statusColors[sub.status] || 'bg-slate-100 text-slate-800'}`}>
+                                {statusLabels[sub.status] || sub.status}
+                              </Badge>
+                            </div>
+
+                            {/* Work Description */}
+                            {sub.workDescription && (
+                              <div className="bg-slate-50 p-2.5 rounded border border-slate-100">
+                                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 block mb-1">
+                                  Work Description
+                                </span>
+                                <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                                  {sub.workDescription}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Remarks */}
+                            {sub.remarks && (
+                              <div className="bg-slate-50 p-2.5 rounded border border-slate-100">
+                                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 block mb-1">
+                                  Student's Remarks
+                                </span>
+                                <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                                  {sub.remarks}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Submitted Files */}
+                            {sub.fileUrls && sub.fileUrls.length > 0 && (
+                              <div className="space-y-1.5">
+                                <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 block">
+                                  Submitted Files ({sub.fileUrls.length})
+                                </span>
+                                <div className="grid gap-1.5 sm:grid-cols-2">
+                                  {sub.fileUrls.map((url, fIdx) => {
+                                    const filename = url.split('/').pop() || 'file';
+                                    return (
+                                      <div key={fIdx} className="flex items-center justify-between p-2 bg-slate-50 rounded border border-slate-200 text-xs">
+                                        <span className="truncate font-medium text-slate-700 max-w-[150px]" title={filename}>
+                                          {filename}
+                                        </span>
+                                        <div className="flex gap-1.5">
+                                          <a
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[#00C853] hover:underline font-semibold"
+                                          >
+                                            Open
+                                          </a>
+                                          <a
+                                            href={url}
+                                            download
+                                            className="text-blue-600 hover:underline font-semibold"
+                                          >
+                                            Download
+                                          </a>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                className="text-[#00C853] hover:text-[#00C853]/80 hover:bg-[#00C853]/10"
-                                onClick={() => window.open(file, '_blank')}
-                              >
-                                Download
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                            )}
+
+                            {/* Admin Remarks / Feedback */}
+                            {sub.adminRemark && (
+                              <div className="bg-emerald-50/50 p-2.5 rounded border border-emerald-200">
+                                <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-950 block mb-1">
+                                  Admin Feedback
+                                </span>
+                                <p className="text-xs text-emerald-950 whitespace-pre-wrap leading-relaxed">
+                                  {sub.adminRemark}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -1134,37 +1232,66 @@ export function UserTasks() {
                       <h3 className="font-bold text-lg text-slate-900 mb-2">
                         {selectedTask.title}
                       </h3>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className="bg-red-100 text-red-700 border-red-300 text-xs px-2 py-0.5">
-                          <Flag className="h-3 w-3 mr-1" />
-                          {selectedTask.priority}
-                        </Badge>
-                        {selectedTask.category && (
-                          <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs px-2 py-0.5">
-                            {selectedTask.category}
-                          </Badge>
-                        )}
-                        <Badge className="bg-[#00C853]/10 text-[#00C853] border-[#00C853]/30 text-xs px-2 py-0.5">
-                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                          Ready to Submit
-                        </Badge>
-                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
+              {/* Work Description Section */}
+              <div className="space-y-3">
+                <Label htmlFor="work-desc" className="text-base font-semibold text-slate-900">
+                  Work Description <span className="text-red-500">*</span>
+                </Label>
+                <Textarea
+                  id="work-desc"
+                  placeholder="Describe the work you completed, results, or steps taken..."
+                  value={workDescription}
+                  onChange={(e) => setWorkDescription(e.target.value)}
+                  className="min-h-[100px] text-sm border-2 border-slate-200 focus:border-[#00C853] focus:ring-[#00C853] rounded-lg resize-none"
+                  required
+                />
+              </div>
+
+              {/* Progress Slider Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="progress-slider" className="text-base font-semibold text-slate-900">
+                    Progress Percentage
+                  </Label>
+                  <span className="text-sm font-bold text-[#00C853]">{submissionProgress}%</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="range"
+                    id="progress-slider"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={submissionProgress}
+                    onChange={(e) => setSubmissionProgress(Number(e.target.value))}
+                    className="w-full h-2 bg-slate-100 accent-[#00C853] rounded-lg appearance-none cursor-pointer"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={submissionProgress}
+                    onChange={(e) => setSubmissionProgress(Math.min(100, Math.max(0, Number(e.target.value))))}
+                    className="w-20 text-xs text-center border-2 border-[#00C853]/20"
+                  />
+                </div>
+              </div>
 
               {/* Remarks Section */}
               <div className="space-y-3">
                 <Label htmlFor="remarks" className="text-base font-semibold text-slate-900">
-                  Remarks
+                  Remarks / Comments
                 </Label>
                 <Textarea
                   id="remarks"
-                  placeholder="Enter your remarks here"
+                  placeholder="Enter any additional notes or remarks here..."
                   value={submissionNote}
                   onChange={(e) => setSubmissionNote(e.target.value)}
-                  className="min-h-[140px] text-sm border-2 border-slate-200 focus:border-[#00C853] focus:ring-[#00C853] rounded-lg resize-none"
+                  className="min-h-[100px] text-sm border-2 border-slate-200 focus:border-[#00C853] focus:ring-[#00C853] rounded-lg resize-none"
                 />
               </div>
 
@@ -1252,7 +1379,7 @@ export function UserTasks() {
                 </Button>
                 <Button
                   onClick={handleSubmitTask}
-                  disabled={(!submissionNote.trim() && uploadedFiles.length === 0) || isUploading}
+                  disabled={!workDescription.trim() || isUploading}
                   className="px-8 bg-[#00C853] hover:bg-[#00C853]/90 text-white font-semibold shadow-lg shadow-[#00C853]/20 hover:shadow-xl hover:shadow-[#00C853]/30 transition-all"
                 >
                   {isUploading ? (

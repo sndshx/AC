@@ -7,99 +7,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  USER
-}
-
-enum UserStatus {
-  ACTIVE
-  DISABLED
-}
-
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  COMPLETED
-  BLOCKED
-}
-
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum WhatsAppHealth {
-  ACTIVE
-  WARNING
-  LIMITED
-  BANNED
-}
-
-enum NotificationType {
-  TASK_ASSIGNED
-  TASK_COMPLETED
-  AI_RECOMMENDATION
-  WHATSAPP_WARNING
-  WHATSAPP_BAN
-  CALENDAR_REMINDER
-  ADMIN_REMARK
-}
-
 model User {
-  id              String           @id @default(cuid())
-  fullName        String
-  email           String           @unique
-  passwordHash    String
-  role            Role             @default(USER)
-  status          UserStatus       @default(ACTIVE)
-  avatarUrl       String?
-  teamName        String?
-  lastLoginAt     DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  activities      Activity[]
-  assignedTasks   MarketingTask[]  @relation("AssignedTasks")
-  createdTasks    MarketingTask[]  @relation("CreatedTasks")
-  calendarEvents  CalendarEvent[]  @relation("AssignedEvents")
-  createdEvents   CalendarEvent[]  @relation("CreatedEvents")
-  receivedRemarks Remark[]         @relation("ReceivedRemarks")
-  createdRemarks  Remark[]         @relation("CreatedRemarks")
-  aiProgress      AIProgress[]
+  id               String            @id @default(cuid())
+  fullName         String
+  email            String            @unique
+  passwordHash     String
+  role             Role              @default(USER)
+  status           UserStatus        @default(ACTIVE)
+  avatarUrl        String?
+  teamName         String?
+  lastLoginAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  aiProgress       AIProgress[]
+  activities       Activity[]
+  activityLogs     ActivityLog[]
+  auditLogs        AuditLog[]
+  calendarEvents   CalendarEvent[]   @relation("AssignedEvents")
+  createdEvents    CalendarEvent[]   @relation("CreatedEvents")
+  chatMessages     ChatMessage[]
+  assignedTasks    MarketingTask[]   @relation("AssignedTasks")
+  createdTasks     MarketingTask[]   @relation("CreatedTasks")
+  notifications    Notification[]
+  createdRemarks   Remark[]          @relation("CreatedRemarks")
+  receivedRemarks  Remark[]          @relation("ReceivedRemarks")
+  generatedReports Report[]          @relation("ReportGenerator")
+  reports          Report[]          @relation("ReportOwner")
+  teamMemberships  TeamMember[]
   whatsAppAccounts WhatsAppAccount[]
-  notifications   Notification[]
-  reports         Report[]         @relation("ReportOwner")
-  generatedReports Report[]        @relation("ReportGenerator")
-  auditLogs       AuditLog[]
-  teamMemberships TeamMember[]
-  chatMessages    ChatMessage[]
-  activityLogs    ActivityLog[]
 
   @@index([role, status])
   @@index([createdAt])
 }
 
 model Activity {
-  id                    String   @id @default(cuid())
-  userId                String
-  date                  DateTime @default(now())
-  dailyMessagesSent     Int      @default(0)
-  monthlyMessagesSent   Int      @default(0)
-  successfulReplies     Int      @default(0)
-  failedReplies         Int      @default(0)
-  pendingFollowUps      Int      @default(0)
-  completedFollowUps    Int      @default(0)
-  dailyTarget           Int      @default(100)
-  monthlyTarget         Int      @default(2200)
-  successRate           Float    @default(0)
-  productivity          Float    @default(0)
-  performanceScore      Float    @default(0)
-  completionPercentage  Float    @default(0)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                   String   @id @default(cuid())
+  userId               String
+  date                 DateTime @default(now())
+  dailyMessagesSent    Int      @default(0)
+  monthlyMessagesSent  Int      @default(0)
+  successfulReplies    Int      @default(0)
+  failedReplies        Int      @default(0)
+  pendingFollowUps     Int      @default(0)
+  completedFollowUps   Int      @default(0)
+  dailyTarget          Int      @default(100)
+  monthlyTarget        Int      @default(2200)
+  successRate          Float    @default(0)
+  productivity         Float    @default(0)
+  performanceScore     Float    @default(0)
+  completionPercentage Float    @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, date])
   @@index([date])
@@ -107,17 +66,17 @@ model Activity {
 }
 
 model ActivityLog {
-  id                 String           @id @default(cuid())
-  userId             String
-  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  date               DateTime         @db.Date
-  messageCount       Int              @default(0)
-  remarks            String?
-  aiProgress         String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  whatsAppAccountId  String?
-  whatsAppAccount    WhatsAppAccount? @relation(fields: [whatsAppAccountId], references: [id], onDelete: SetNull)
+  id                String           @id @default(cuid())
+  userId            String
+  date              DateTime         @db.Date
+  messageCount      Int              @default(0)
+  remarks           String?
+  aiProgress        String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  whatsAppAccountId String?
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  whatsAppAccount   WhatsAppAccount? @relation(fields: [whatsAppAccountId], references: [id])
 
   @@index([date])
   @@index([userId])
@@ -130,57 +89,52 @@ model Team {
   description String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
-  members     TeamMember[]
   tasks       MarketingTask[]
+  members     TeamMember[]
 
   @@index([name])
 }
 
 model TeamMember {
-  id        String   @id @default(cuid())
-  teamId    String
-  userId    String
-  role      String   @default("member")
-  joinedAt  DateTime @default(now())
-  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String   @id @default(cuid())
+  teamId   String
+  userId   String
+  role     String   @default("member")
+  joinedAt DateTime @default(now())
+  team     Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, userId])
   @@index([userId])
   @@index([teamId])
 }
 
-enum TaskAssignmentType {
-  INDIVIDUAL
-  TEAM
-  ALL_USERS
-}
-
 model MarketingTask {
-  id                 String             @id @default(cuid())
-  title              String
-  description        String?
-  status             TaskStatus         @default(TODO)
-  priority           Priority           @default(MEDIUM)
-  category           String?
-  dueDate            DateTime?
-  completedAt        DateTime?
-  assignmentType     TaskAssignmentType @default(INDIVIDUAL)
-  assignedToId       String?
-  assignedToTeamId   String?
-  createdById        String
-  remarks            String?
-  attachments        String[]
-  submissionNote     String?
-  submittedAt        DateTime?
-  submittedFiles     String[]
-  notificationSent   Boolean            @default(false)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  assignedTo         User?              @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: SetNull)
-  assignedToTeam     Team?              @relation(fields: [assignedToTeamId], references: [id], onDelete: SetNull)
-  createdBy          User               @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
-  progressUpdates    TaskProgress[]
+  id               String             @id @default(cuid())
+  title            String
+  description      String?
+  status           TaskStatus         @default(TODO)
+  priority         Priority           @default(MEDIUM)
+  category         String?
+  dueDate          DateTime?
+  completedAt      DateTime?
+  assignmentType   TaskAssignmentType @default(INDIVIDUAL)
+  assignedToId     String?
+  assignedToTeamId String?
+  createdById      String
+  remarks          String?
+  attachments      String[]
+  submissionNote   String?
+  submittedAt      DateTime?
+  submittedFiles   String[]
+  notificationSent Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  assignedTo       User?              @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  assignedToTeam   Team?              @relation(fields: [assignedToTeamId], references: [id])
+  createdBy        User               @relation("CreatedTasks", fields: [createdById], references: [id], onDelete: Cascade)
+  progressUpdates  TaskProgress[]
+  submissions      TaskSubmission[]
 
   @@index([assignedToId, status])
   @@index([assignedToTeamId])
@@ -190,17 +144,52 @@ model MarketingTask {
 }
 
 model TaskProgress {
-  id        String   @id @default(cuid())
+  id        String        @id @default(cuid())
   taskId    String
   userId    String
   status    TaskStatus
-  progress  Int      @default(0)
+  progress  Int           @default(0)
   comment   String?
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
   task      MarketingTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
   @@index([taskId])
   @@index([userId])
+}
+
+model TaskSubmission {
+  id              String           @id @default(cuid())
+  taskId          String
+  userId          String
+  workDescription String?
+  remarks         String?
+  progress        Int              @default(0)
+  fileUrls        String[]
+  submittedAt     DateTime         @default(now())
+  status          SubmissionStatus @default(PENDING)
+  adminRemark     String?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  files           SubmissionFile[]
+  task            MarketingTask    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([submittedAt])
+}
+
+model SubmissionFile {
+  id           String         @id @default(cuid())
+  submissionId String
+  fileName     String
+  originalName String
+  mimeType     String
+  fileSize     Int
+  fileUrl      String
+  uploadedAt   DateTime       @default(now())
+  submission   TaskSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
 }
 
 model CalendarEvent {
@@ -214,7 +203,7 @@ model CalendarEvent {
   createdById  String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-  assignedTo   User?    @relation("AssignedEvents", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedTo   User?    @relation("AssignedEvents", fields: [assignedToId], references: [id])
   createdBy    User     @relation("CreatedEvents", fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([startAt, endAt])
@@ -228,28 +217,28 @@ model Remark {
   createdById String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  user        User     @relation("ReceivedRemarks", fields: [userId], references: [id], onDelete: Cascade)
   createdBy   User     @relation("CreatedRemarks", fields: [createdById], references: [id], onDelete: Cascade)
+  user        User     @relation("ReceivedRemarks", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdById])
 }
 
 model AIProgress {
-  id                    String   @id @default(cuid())
-  userId                String
-  period                String
-  summary               String
-  productivityScore     Float    @default(0)
-  aiScore               Float    @default(0)
-  bestSendTime          String?
-  suggestedFollowUps    String[]
-  improvementTips       String[]
-  riskAlerts            String[]
-  inactiveUserSignal    Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  userId             String
+  period             String
+  summary            String
+  productivityScore  Float    @default(0)
+  aiScore            Float    @default(0)
+  bestSendTime       String?
+  suggestedFollowUps String[]
+  improvementTips    String[]
+  riskAlerts         String[]
+  inactiveUserSignal Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, period])
 }
@@ -269,8 +258,8 @@ model WhatsAppAccount {
   banHistory      Json?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   activityLogs    ActivityLog[]
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([status])
@@ -300,8 +289,8 @@ model Report {
   endDate       DateTime
   payload       Json
   createdAt     DateTime @default(now())
+  generatedBy   User?    @relation("ReportGenerator", fields: [generatedById], references: [id])
   user          User     @relation("ReportOwner", fields: [userId], references: [id], onDelete: Cascade)
-  generatedBy   User?    @relation("ReportGenerator", fields: [generatedById], references: [id], onDelete: SetNull)
 
   @@index([userId, period])
   @@index([createdAt])
@@ -316,11 +305,90 @@ model AuditLog {
   metadata  Json?
   ipAddress String?
   createdAt DateTime @default(now())
-  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  actor     User?    @relation(fields: [actorId], references: [id])
 
   @@index([actorId])
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+model ChatMessage {
+  id           String     @id @default(cuid())
+  userId       String
+  content      String
+  recipient    String
+  channel      String     @default("WhatsApp")
+  status       ChatStatus @default(SENT)
+  sentAt       DateTime   @default(now())
+  deliveredAt  DateTime?
+  readAt       DateTime?
+  repliedAt    DateTime?
+  hasReply     Boolean    @default(false)
+  replyContent String?
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([sentAt])
+  @@index([channel])
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  NEEDS_REVISION
+  REJECTED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WhatsAppHealth {
+  ACTIVE
+  WARNING
+  LIMITED
+  BANNED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMPLETED
+  AI_RECOMMENDATION
+  WHATSAPP_WARNING
+  WHATSAPP_BAN
+  CALENDAR_REMINDER
+  ADMIN_REMARK
+  SUBMISSION_REVIEWED
+}
+
+enum TaskAssignmentType {
+  INDIVIDUAL
+  TEAM
+  ALL_USERS
 }
 
 enum ChatStatus {
@@ -328,28 +396,4 @@ enum ChatStatus {
   DELIVERED
   READ
   FAILED
-}
-
-model ChatMessage {
-  id          String     @id @default(cuid())
-  userId      String
-  content     String
-  recipient   String
-  channel     String     @default("WhatsApp")
-  status      ChatStatus @default(SENT)
-  sentAt      DateTime   @default(now())
-  deliveredAt DateTime?
-  readAt      DateTime?
-  repliedAt   DateTime?
-  hasReply    Boolean    @default(false)
-  replyContent String?
-  metadata    Json?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([status])
-  @@index([sentAt])
-  @@index([channel])
 }
