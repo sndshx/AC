@@ -30,8 +30,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { 
-  CheckCircle2, 
+import {
+  CheckCircle2,
   Search,
   Loader2,
   Clock,
@@ -180,7 +180,7 @@ export function UserTasks() {
 
   const fetchTasks = async () => {
     if (!currentUserId) return;
-    
+
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
@@ -203,7 +203,7 @@ export function UserTasks() {
 
   const fetchStats = async () => {
     if (!currentUserId) return;
-    
+
     try {
       const response = await fetch(`/api/user/tasks/stats?userId=${currentUserId}`);
       const result = await response.json();
@@ -449,7 +449,7 @@ export function UserTasks() {
       task.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || task.status === statusFilter;
     const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-    
+
     if (statusFilter === "dueToday") {
       const today = new Date().toDateString();
       const taskDue = task.dueDate ? new Date(task.dueDate).toDateString() : null;
@@ -458,7 +458,7 @@ export function UserTasks() {
     if (statusFilter === "overdue") {
       return matchesSearch && isOverdue(task);
     }
-    
+
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
@@ -576,7 +576,7 @@ export function UserTasks() {
               </div>
               <span className="text-sm font-bold text-slate-900">{stats.todo}</span>
             </div>
-            
+
             <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
               <div className="flex items-center gap-2">
                 <Loader2 className="h-3.5 w-3.5 text-blue-600" />
@@ -584,7 +584,7 @@ export function UserTasks() {
               </div>
               <span className="text-sm font-bold text-blue-600">{stats.inProgress}</span>
             </div>
-            
+
             <div className="flex items-center justify-between p-2 bg-slate-50 rounded">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-3.5 w-3.5 text-red-600" />
@@ -782,9 +782,9 @@ export function UserTasks() {
               </Card>
             ) : (
               filteredTasks.map((task) => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
+                <TaskCard
+                  key={task.id}
+                  task={task}
                   onView={handleViewDetails}
                   onStartTask={handleStartTask}
                   onMarkComplete={handleMarkComplete}
@@ -810,9 +810,9 @@ export function UserTasks() {
               </Card>
             ) : (
               pendingTasks.map((task) => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
+                <TaskCard
+                  key={task.id}
+                  task={task}
                   onView={handleViewDetails}
                   onStartTask={handleStartTask}
                   onMarkComplete={handleMarkComplete}
@@ -838,9 +838,9 @@ export function UserTasks() {
               </Card>
             ) : (
               completedTasks.map((task) => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
+                <TaskCard
+                  key={task.id}
+                  task={task}
                   onView={handleViewDetails}
                   onStartTask={handleStartTask}
                   onMarkComplete={handleMarkComplete}
@@ -1028,7 +1028,7 @@ export function UserTasks() {
                           <div key={sub.id} className="relative space-y-2">
                             {/* Dot on timeline */}
                             <div className="absolute -left-[25px] mt-1 h-3.5 w-3.5 rounded-full border-2 border-emerald-500 bg-white" />
-                            
+
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <span className="text-xs font-semibold text-slate-500">
                                 Submitted on {new Date(sub.submittedAt).toLocaleString()}
@@ -1054,7 +1054,7 @@ export function UserTasks() {
                             {sub.remarks && (
                               <div className="bg-slate-50 p-2.5 rounded border border-slate-100">
                                 <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500 block mb-1">
-                                  Student's Remarks
+                                  User's Remarks
                                 </span>
                                 <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
                                   {sub.remarks}
@@ -1464,15 +1464,14 @@ function TaskCard({
   getAssignmentLabel,
 }: TaskCardProps) {
   return (
-    <Card className={`border-l-4 shadow-sm hover:shadow-lg transition-all duration-300 ${
-      isOverdue(task) 
-        ? 'border-l-red-500 bg-red-50/30' 
+    <Card className={`border-l-4 shadow-sm hover:shadow-lg transition-all duration-300 ${isOverdue(task)
+        ? 'border-l-red-500 bg-red-50/30'
         : task.status === 'IN_PROGRESS'
-        ? 'border-l-blue-500 bg-blue-50/20'
-        : task.status === 'COMPLETED'
-        ? 'border-l-[#00C853] bg-emerald-50/20'
-        : 'border-l-slate-300 bg-white'
-    }`}>
+          ? 'border-l-blue-500 bg-blue-50/20'
+          : task.status === 'COMPLETED'
+            ? 'border-l-[#00C853] bg-emerald-50/20'
+            : 'border-l-slate-300 bg-white'
+      }`}>
       <CardContent className="p-0">
         {/* Main Content */}
         <div className="p-5">
@@ -1500,9 +1499,9 @@ function TaskCard({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="h-8 w-8 p-0 hover:bg-slate-100 rounded-full"
                 >
                   <MoreVertical className="h-4 w-4 text-slate-600" />
@@ -1585,16 +1584,14 @@ function TaskCard({
 
             {/* Due Date */}
             <div className="flex items-start gap-2">
-              <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${
-                isOverdue(task) ? 'bg-red-100' : 'bg-slate-100'
-              }`}>
+              <div className={`h-9 w-9 rounded-lg flex items-center justify-center shrink-0 ${isOverdue(task) ? 'bg-red-100' : 'bg-slate-100'
+                }`}>
                 <Calendar className={`h-4 w-4 ${isOverdue(task) ? 'text-red-600' : 'text-slate-600'}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] text-slate-500 font-medium mb-0.5">Due Date</p>
-                <p className={`text-xs font-semibold truncate ${
-                  isOverdue(task) ? 'text-red-600' : 'text-slate-900'
-                }`}>
+                <p className={`text-xs font-semibold truncate ${isOverdue(task) ? 'text-red-600' : 'text-slate-900'
+                  }`}>
                   {formatDate(task.dueDate)}
                 </p>
               </div>
@@ -1609,7 +1606,7 @@ function TaskCard({
                 <span className="text-xs font-bold text-[#00C853]">{task.progress}%</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-gradient-to-r from-[#00C853] to-emerald-400 transition-all duration-500 rounded-full"
                   style={{ width: `${task.progress}%` }}
                 />
@@ -1664,13 +1661,12 @@ function TaskCard({
               </Button>
             )}
 
-            <span className={`px-3 py-1.5 rounded-md text-xs font-medium ${
-              task.status === 'IN_PROGRESS' 
-                ? 'bg-blue-100 text-blue-700' 
+            <span className={`px-3 py-1.5 rounded-md text-xs font-medium ${task.status === 'IN_PROGRESS'
+                ? 'bg-blue-100 text-blue-700'
                 : task.status === 'COMPLETED'
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-slate-100 text-slate-700'
-            }`}>
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-slate-100 text-slate-700'
+              }`}>
               {task.status === 'IN_PROGRESS' ? 'In Progress' : task.status}
             </span>
           </div>

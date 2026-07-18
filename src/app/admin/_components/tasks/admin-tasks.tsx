@@ -551,9 +551,7 @@ export function AdminTasks() {
             </div>
             Task Management Center
           </h1>
-          <p className="text-[10px] text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
-            Create, assign, track, and manage team tasks & deadlines
-          </p>
+
         </div>
 
         <div className="flex gap-2">
@@ -590,7 +588,7 @@ export function AdminTasks() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-3 md:grid-cols-6">
+      <div className="grid gap-3 md:grid-cols-5">
         <Card className="border border-slate-200/60 shadow-sm hover:shadow-md transition-all duration-300 bg-white relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-slate-50 to-transparent rounded-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform duration-500" />
           <CardContent className="p-3.5 relative">
@@ -649,23 +647,6 @@ export function AdminTasks() {
             </div>
             <div className="text-2xl font-bold text-red-600">{stats.blocked}</div>
             <p className="text-[10px] font-semibold text-red-600 mt-0.5">Blocked</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-2 border-red-300 shadow-md hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-red-50 to-white">
-          <CardContent className="p-3.5">
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center shadow-sm">
-                <AlertCircle className="h-3.5 w-3.5 text-red-700" />
-              </div>
-              {stats.overdue > 0 && (
-                <span className="text-[9px] font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full animate-pulse">
-                  ALERT
-                </span>
-              )}
-            </div>
-            <div className="text-2xl font-bold text-red-700">{stats.overdue}</div>
-            <p className="text-[10px] font-semibold text-red-700 mt-0.5">Overdue</p>
           </CardContent>
         </Card>
       </div>
